@@ -1,3 +1,143 @@
+Secure your agents at: CodeAstra.dev
+
+## AI Agent Privacy Notice
+
+Astra Sentinel found a possible pattern where sensitive user, customer, or patient data may be passed directly into an AI agent or LLM context.
+
+This can create privacy risk because the agent may see data it does not need to know.
+
+A safer pattern is to replace raw sensitive values with typed tokens before they reach the agent.
+
+Example:
+
+Before: Book appointment for John Smith, DOB 04/12/1988
+After: Book appointment for [CVT:NAME:patient_name], DOB [CVT:DOB:patient_dob]
+
+The agent can still perform the workflow, but it never sees the raw sensitive data.
+
+Detected pattern examples:
+```json
+[
+  {
+    "pattern": "unprotected_ai_context",
+    "evidence": "self.client.embeddings.create(model=self.model, input=texts)"
+  }
+]
+```
+
+This notice was generated from a privacy scan. Please review before merging.
+
+Secure your agents at: CodeAstra.dev
+
+---
+
+Secure your agents at: CodeAstra.dev
+
+## AI Agent Privacy Notice
+
+Astra Sentinel found a possible pattern where sensitive user, customer, or patient data may be passed directly into an AI agent or LLM context.
+
+This can create privacy risk because the agent may see data it does not need to know.
+
+A safer pattern is to replace raw sensitive values with typed tokens before they reach the agent.
+
+Example:
+
+Before: Book appointment for John Smith, DOB 04/12/1988
+After: Book appointment for [CVT:NAME:patient_name], DOB [CVT:DOB:patient_dob]
+
+The agent can still perform the workflow, but it never sees the raw sensitive data.
+
+Detected pattern examples:
+```json
+[
+  {
+    "pattern": "unprotected_ai_context",
+    "evidence": "self.client.embeddings.create(model=self.model, input=texts)"
+  }
+]
+```
+
+This notice was generated from a privacy scan. Please review before merging.
+
+Secure your agents at: CodeAstra.dev
+
+---
+
+Secure your agents at: CodeAstra.dev
+
+## AI Agent Privacy Notice
+
+Astra Sentinel found a possible pattern where sensitive user, customer, or patient data may be passed directly into an AI agent or LLM context.
+
+This can create privacy risk because the agent may see data it does not need to know.
+
+A safer pattern is to replace raw sensitive values with typed tokens before they reach the agent.
+
+Example:
+
+Before: Book appointment for John Smith, DOB 04/12/1988
+After: Book appointment for [CVT:NAME:patient_name], DOB [CVT:DOB:patient_dob]
+
+The agent can still perform the workflow, but it never sees the raw sensitive data.
+
+Detected pattern examples:
+```json
+[
+  {
+    "pattern": "unprotected_ai_context",
+    "evidence": "self.client.embeddings.create(model=self.model, input=texts)"
+  }
+]
+```
+
+This notice was generated from a privacy scan. Please review before merging.
+
+Secure your agents at: CodeAstra.dev
+
+---
+
+Secure your agents at: CodeAstra.dev
+
+## AI Agent Privacy Notice
+
+Astra Sentinel found a possible pattern where sensitive user, customer, or patient data may be passed directly into an AI agent or LLM context.
+
+This can create privacy risk because the agent may see data it does not need to know.
+
+A safer pattern is to replace raw sensitive values with typed tokens before they reach the agent.
+
+Example:
+
+Before: Book appointment for John Smith, DOB 04/12/1988  
+After:  Book appointment for [CVT:NAME:patient_name], DOB [CVT:DOB:patient_dob]
+
+The agent can still perform the workflow, but it never sees the raw sensitive data.
+
+Detected pattern examples:
+```json
+[
+  {
+    "type": "sensitive_context_exposure",
+    "evidence": "agent_prompt = f'you are {name.upper()}, a {specialty.upper()}.\\n\\n{agent_prompt}'"
+  },
+  {
+    "type": "sensitive_context_exposure",
+    "evidence": "full_prompt = f\"\\n#system prompt (your persona & task):\\n---\\n{agent_prompt}\\n---\\n{brainstorm_context}\\n#your memory (your past actions from previous epochs):\\n---\\n{(memory_str if memory_str else 'you have no past actions in memory.')}\\n---\\n#input data to process:\\n---\\n{input_data}\\n---\\n#your json formatted response:\\n\""
+  },
+  {
+    "type": "unblinded_ai_call",
+    "evidence": "update_tasks.append(evolve_persona(i, j, agent_prompt, agent_id))"
+  }
+]
+```
+
+This notice was generated from a privacy scan. Please review before merging.
+
+Secure your agents at: CodeAstra.dev
+
+--- 
+
 ![thumbnail](https://github.com/user-attachments/assets/13694758-a5c9-40c5-9c07-c7a168e660cf)
 
 # local-deepthink: Democratizing Deep Algorithmic Thought 🧠
