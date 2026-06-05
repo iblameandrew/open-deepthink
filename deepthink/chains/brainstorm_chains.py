@@ -7,12 +7,15 @@ from langchain_core.output_parsers import StrOutputParser
 
 
 def get_complexity_estimator_chain(llm):
-    """Estimates QNN size and generates dynamic expert personas based on problem complexity."""
+    """Estimates QNN size for AUTO mode (small panels recommended by default for cost/speed).
+    Users can override with Manual/Massive mode in the UI to spawn huge topologies at their request.
+    """
     # REFACTORED: Now focuses on Topological Parameters, not just returning a static list of experts.
     # Also considers prior conversation and document context for continuity.
     prompt = ChatPromptTemplate.from_template("""
-Analyze the complexity of the following user input/question for a brainstorming session.
-Based on the complexity and nature of the problem, recommend an appropriate QNN topology (layers, epochs, and width).
+Analyze the complexity of the following user input/question for a brainstorming session (AUTO mode).
+Based on the complexity and nature of the problem, recommend a *small* QNN topology (layers, epochs, and width) suitable for balanced, affordable runs.
+This estimator is ONLY used when the user selects "Auto"; they can also choose Manual/Massive to request any size they want (e.g. 50x50).
 
 User Input:
 ---
@@ -40,9 +43,9 @@ Consider these factors for complexity:
 Respond with a JSON object:
 {{
     "complexity_score": <1-10 integer>,
-    "recommended_layers": <2-5 integer, depth of thought>,
+    "recommended_layers": <2-5 integer, depth of thought - keep small for auto>,
     "recommended_epochs": <1-3 integer, iterative refinement>,
-    "recommended_width": <2-5 integer, number of parallel perspectives per layer>,
+    "recommended_width": <2-5 integer, number of parallel perspectives per layer - keep small for auto>,
     "reasoning": "<brief explanation>"
 }}
 """)

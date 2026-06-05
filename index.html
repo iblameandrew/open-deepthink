@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Free Deep Think</title>
+    <title>army of agents to think about your problem.</title>
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -587,7 +587,7 @@
 </head>
 
 <body>
-    <h1>It takes a village of agents to raise an agent</h1>
+    <h1>army of agents to think about your problem.</h1>
 
     <!-- Settings Panel -->
     <div class="container">
@@ -746,6 +746,32 @@
                     <input type="checkbox" id="brainstorm_debug_mode">
                     <label for="brainstorm_debug_mode" style="color: #aaa; cursor: pointer; font-size: 0.9rem;">🚀
                         Simulation Mode (Mock LLM - No Cost)</label>
+                </div>
+            </div>
+
+            <!-- QNN Size Mode: Auto (small) or Manual/Massive at user request -->
+            <div style="margin-bottom: 12px; padding: 10px; background: #1a1d24; border-radius: 6px; border: 1px solid #333;">
+                <div style="color: #aaa; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">QNN Topology Mode:</div>
+                <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                    <label style="font-size: 0.85rem; color: #ddd; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                        <input type="radio" name="qnn_size_mode" value="auto" checked id="qnn_auto">
+                        <span>Auto (recommended small 2-5 layers/width)</span>
+                    </label>
+                    <label style="font-size: 0.85rem; color: #ffcc66; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                        <input type="radio" name="qnn_size_mode" value="manual" id="qnn_manual">
+                        <span>Manual / Massive (spawn huge QNN at your request)</span>
+                    </label>
+                </div>
+                <div id="manual-qnn-controls" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #444; gap: 12px; align-items: center; flex-wrap: wrap;">
+                    <label style="color: #aaa; font-size: 0.8rem;">Layers (depth):
+                        <input type="number" id="manual_layers" value="20" min="1" max="10000" step="1"
+                            style="width: 70px; padding: 3px 6px; font-size: 0.85rem; border: 1px solid #555; background: #111; color: #eee;">
+                    </label>
+                    <label style="color: #aaa; font-size: 0.8rem;">Width (agents per layer):
+                        <input type="number" id="manual_width" value="20" min="1" max="10000" step="1"
+                            style="width: 70px; padding: 3px 6px; font-size: 0.85rem; border: 1px solid #555; background: #111; color: #eee;">
+                    </label>
+                    <span style="color: #ff8888; font-size: 0.75rem; max-width: 220px;">⚠️ Massive QNNs will use lots of tokens/time/$ — use with powerful backend or local models</span>
                 </div>
             </div>
 
@@ -1564,7 +1590,7 @@
         if (document.getElementById('node-chat-container')) {
             nodeChatInstance = NodeChat.init('node-chat-container', {
                 title: 'Brainstorm',
-                subtitle: 'AI-powered expert panel',
+                subtitle: 'Auto small panel or spawn a massive army of agents',
                 placeholder: 'What would you like to brainstorm?',
                 onSend: async (message, chat) => {
                     const provider = localStorage.getItem('llm_provider') || 'gemini';
@@ -1609,6 +1635,8 @@
                     if (provider === 'grok') selectedApiKey = grokApiKey;
                     if (provider === 'openrouter') selectedApiKey = openrouterApiKey;
 
+                    const qnnModeRadio = document.querySelector('input[name="qnn_size_mode"]:checked');
+                    const qnnMode = qnnModeRadio ? qnnModeRadio.value : 'auto';
                     const params = {
                         prompt: message,
                         provider: provider,
@@ -1624,7 +1652,11 @@
                         density: 1.0,
                         learning_rate: 0.1,
                         num_epochs: parseInt(document.getElementById('brainstorm_epochs')?.value) || 2,
-                        coder_debug_mode: document.getElementById('brainstorm_debug_mode').checked ? 'true' : 'false'
+                        coder_debug_mode: document.getElementById('brainstorm_debug_mode').checked ? 'true' : 'false',
+                        // New: support for user-requested massive QNN in brainstorming
+                        qnn_mode: qnnMode,
+                        manual_layers: parseInt(document.getElementById('manual_layers')?.value) || 5,
+                        manual_width: parseInt(document.getElementById('manual_width')?.value) || 5
                     };
 
                     try {
@@ -1648,6 +1680,27 @@
 
 
 
+
+            // Setup QNN size mode toggle for Auto vs Manual/Massive in Brainstorming
+            const setupQnnModeToggle = () => {
+                const autoRadio = document.getElementById('qnn_auto');
+                const manualRadio = document.getElementById('qnn_manual');
+                const manualControls = document.getElementById('manual-qnn-controls');
+                if (!autoRadio || !manualRadio || !manualControls) return;
+
+                const updateVisibility = () => {
+                    if (manualRadio.checked) {
+                        manualControls.style.display = 'flex';
+                    } else {
+                        manualControls.style.display = 'none';
+                    }
+                };
+                autoRadio.addEventListener('change', updateVisibility);
+                manualRadio.addEventListener('change', updateVisibility);
+                // initial state
+                updateVisibility();
+            };
+            setupQnnModeToggle();
 
             downloadLogButton.addEventListener('click', downloadLog);
 

@@ -122,7 +122,7 @@ load_dotenv()
 # Configure Gemini API key from environment or UI
 # os.environ["GOOGLE_API_KEY"] = ...
 
-app = FastAPI(title="DeepThink Local")
+app = FastAPI(title="army of agents to think about your problem.")
 app.mount("/js", StaticFiles(directory="js"), name="js")
 app.mount("/css", StaticFiles(directory="css"), name="css")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -2550,7 +2550,7 @@ async def build_and_run_graph(payload: dict = Body(...)):
             try:
                 # BRAINSTORM MODE SETUP (Dynamic Spanning)
                 await log_stream.put(
-                    "--- [BRAINSTORM] Analyzing Complexity & Spanning Concept Space ---"
+                    "--- [BRAINSTORM] Setting up QNN (Auto estimator or user Manual/Massive) ---"
                 )
 
                 # Extract chat history and document context from payload
@@ -2572,19 +2572,7 @@ async def build_and_run_graph(payload: dict = Body(...)):
                         f"LOG: Document context provided ({len(document_context)} characters)."
                     )
 
-                # 1. Complexity Estimation
-                complexity_chain = get_complexity_estimator_chain(llm)
-                complexity_result_str = await complexity_chain.ainvoke(
-                    {
-                        "user_input": user_prompt,
-                        "prior_conversation": chat_history_str,
-                        "document_context": document_context[:10000]
-                        if document_context
-                        else "",  # Truncate for estimation
-                    }
-                )
-
-                # --- Problem Summarization (if documents are present) ---
+                # --- Problem Summarization (if documents are present) - used for both auto and manual ---
                 brainstorm_problem_summary = ""
                 if document_context:
                     summarizer_chain = get_problem_summarizer_chain(
@@ -2599,36 +2587,73 @@ async def build_and_run_graph(payload: dict = Body(...)):
                         }
                     )
 
-                width = 3  # Default
-                try:
-                    complexity_data = clean_and_parse_json(complexity_result_str)
-                    # User determines epochs (default 2), Complexity determines Topology
-                    if "num_epochs" not in params:
-                        params["num_epochs"] = 2
-                    else:
-                        params["num_epochs"] = int(params["num_epochs"])
+                # QNN Topology: user can now choose "manual" for massive QNN at their explicit request,
+                # or "auto" (default) which uses the complexity estimator (still tuned for small panels).
+                qnn_mode = params.get("qnn_mode", "auto")
+                if "num_epochs" not in params:
+                    params["num_epochs"] = 2
+                else:
+                    params["num_epochs"] = int(params.get("num_epochs", 2))
 
-                    if complexity_data is None:
-                        raise ValueError(
-                            "Failed to parse complexity estimation response"
+                width = 3
+                cot_trace_depth = 2
+
+                if qnn_mode == "manual":
+                    try:
+                        raw_layers = int(params.get("manual_layers", 5))
+                        raw_width = int(params.get("manual_width", 5))
+                        # Allow truly massive if user wants it (no artificial 5 cap)
+                        cot_trace_depth = max(1, min(10000, raw_layers))
+                        width = max(1, min(10000, raw_width))
+                        await log_stream.put(
+                            "--- [BRAINSTORM] USER-REQUESTED MANUAL / MASSIVE QNN TOPOLOGY ---"
                         )
-
-                    cot_trace_depth = int(complexity_data.get("recommended_layers", 2))
-                    width = int(complexity_data.get("recommended_width", 3))
-
+                        await log_stream.put(
+                            f"LOG: Manual/Massive topology: {cot_trace_depth} Layers x {width} Width x {params['num_epochs']} Epochs. (Spawning as requested - this can be huge!)"
+                        )
+                    except Exception as e:
+                        await log_stream.put(
+                            f"WARNING: Bad manual_layers/width from UI, using small defaults. Error: {e}"
+                        )
+                        cot_trace_depth = 5
+                        width = 5
+                else:
+                    # AUTO mode (original behavior): estimate complexity, prompt still suggests 2-5 for cost/speed
                     await log_stream.put(
-                        f"LOG: Topology: {cot_trace_depth} Layers x {width} Width x {params['num_epochs']} Epochs."
+                        "--- [BRAINSTORM] Analyzing Complexity & Spanning Concept Space (Auto mode) ---"
                     )
-                except Exception as e:
-                    await log_stream.put(
-                        f"WARNING: Complexity estimation failed. Using defaults. Error: {e}"
+
+                    # 1. Complexity Estimation
+                    complexity_chain = get_complexity_estimator_chain(llm)
+                    complexity_result_str = await complexity_chain.ainvoke(
+                        {
+                            "user_input": user_prompt,
+                            "prior_conversation": chat_history_str,
+                            "document_context": document_context[:10000]
+                            if document_context
+                            else "",  # Truncate for estimation
+                        }
                     )
-                    if "num_epochs" not in params:
-                        params["num_epochs"] = 2
-                    else:
-                        params["num_epochs"] = int(params["num_epochs"])
-                    cot_trace_depth = 2
-                    width = 3
+
+                    try:
+                        complexity_data = clean_and_parse_json(complexity_result_str)
+                        if complexity_data is None:
+                            raise ValueError(
+                                "Failed to parse complexity estimation response"
+                            )
+
+                        cot_trace_depth = int(complexity_data.get("recommended_layers", 2))
+                        width = int(complexity_data.get("recommended_width", 3))
+
+                        await log_stream.put(
+                            f"LOG: Auto topology: {cot_trace_depth} Layers x {width} Width x {params['num_epochs']} Epochs."
+                        )
+                    except Exception as e:
+                        await log_stream.put(
+                            f"WARNING: Complexity estimation failed. Using defaults. Error: {e}"
+                        )
+                        cot_trace_depth = 2
+                        width = 3
 
                 # 2. Seed Generation (Guiding Concepts)
                 # Generate distinct concepts to span the problem space

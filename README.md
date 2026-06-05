@@ -31,7 +31,7 @@ The original QNN functionality. Ideal for users who want to:
 
 ### 2. 🧠 Brainstorming Mode (New!)
 A streamlined, chat-based interface designed for deep concept exploration and ideation.
-*   **Dynamic Expert Panel**: The system automatically generates a panel of expert personas (e.g., "Quantum Physicist", "Market Strategist") tailored to your specific query.
+*   **Dynamic Expert Panel (or Massive!)**: By default uses Auto mode (small panel via complexity estimation). Or choose **Manual / Massive** to spawn a huge QNN (any number of layers × width agents) at your explicit request for "army of agents" scale thinking.
 *   **Collaborative Reflection**: These experts debate, critique, and refine ideas over multiple epochs (cycles of thought).
 *   **Synthesis**: The final output is a comprehensive, synthesized answer that represents the collective intelligence of the agent panel.
 *   **Chat Interface**: Interact with the collective mind in a natural, chat-like environment.
@@ -71,13 +71,14 @@ The **Qualitative Neural Network (QNN)** algorithm that powers this system is gr
 
 ## Changelog
 
+*  **App Title + Massive QNN Option**: Changed app title to "army of agents to think about your problem." In Brainstorming Mode, users now get an explicit choice: **Auto** (small recommended panel via complexity estimator, 2-5) **or Manual/Massive** where you directly specify any Layers × Width (e.g. 100×100) to spawn a giant QNN army at your request. Backend honors large values with no artificial cap (use responsibly).
 *  **Markdown Support**: Chat interfaces now support rich markdown rendering for better readability of code and formatted text.
 *  **Brainstorming Mode**: A specialized mode for exploring ideas and concepts. It utilizes the full QNN engine to dynamically generate a panel of expert personas (e.g., "Dr. Logic", "Creative Visionary") based on your prompt. These agents collaborate and reflect over multiple epochs, providing a depth of insight that a single prompt cannot match. Features a dedicated chat-like interface that displays expert reflections and a final synthesized answer directly in the chat.
 *  **Parallel QNN Topology**: Layer 0 agents now execute in parallel, correcting previous bottlenecks and ensuring a truly distributed initial analysis.
 *  **Gemini Backend Integration**: Added support for Google's Gemini 3 Flash Preview model as the backend for brainstorming mode. API key stored securely in localStorage.
 *  **Mode Switcher**: UI now features two distinct modes - "Algorithm Design Mode" (original QNN functionality) and "Brainstorming Mode" (dynamic QNN expert chat interface).
 *  **Mirror Descent**: Renamed the qualitative backpropagation mechanism to "Mirror Descent" to better reflect the reflective nature of the prompt update process.
-*  **Complexity-Based QNN Sizing**: Brainstorming mode automatically estimates problem complexity and determines the number of QNN agents (2-5) and epochs accordingly.
+*  **Complexity-Based QNN Sizing (Auto mode)**: When using Auto in Brainstorming, mode automatically estimates problem complexity and determines the number of QNN agents (2-5) and epochs accordingly. Manual mode bypasses this for user-specified massive sizes.
 *  **Hidden-layer-fixed**: Issue with meta-prompting in the hidden layer fixed. Agents are now moderately divergent from a strict skill alignment, as originally intended. Specialization is one thing; the individual that serves as recipient for the toolset is another. Keeping both distinct is important to make answers smoother.
 *   **QNN Export/Import:** You can now export the entire state of a trained agent network (QNN) to a JSON file. This QNN can be imported and used for inference on new problems without rerunning the entire epoch process.
 *   **Code Generation & Sandbox:** The system can now generate, synthesize, and safely execute Python code. A new `code_execution` node validates the final code, and successful modules provide context for future epochs.
