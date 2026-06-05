@@ -615,6 +615,16 @@
                 <label for="llamacpp-embedding-url">🧠 Embedding URL:</label>
                 <input type="text" id="llamacpp-embedding-url" value="http://localhost:8080/v1"
                     placeholder="http://localhost:8080/v1" style="min-width: 320px;">
+                <label for="llamacpp-model">🧠 Model:</label>
+                <input type="text" id="llamacpp-model" value="llama-3.2-1b-instruct" placeholder="model name" style="min-width: 180px;">
+            </div>
+
+            <!-- Per-synthesis and per-agent model controls (work with OpenRouter or LlamaCpp) -->
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; width: 100%;">
+                <label for="synthesis-model" style="font-size: 0.85rem; color: #aaa;">Synthesis Model:</label>
+                <input type="text" id="synthesis-model" placeholder="(optional, separate for final synth)" style="width: 160px; padding: 4px; font-size: 0.85rem;">
+                <label for="agent-models" style="font-size: 0.85rem; color: #aaa;">Per-Agent Models (comma-sep, cycles):</label>
+                <input type="text" id="agent-models" placeholder="e.g. model-a,model-b (for different agents)" style="width: 200px; padding: 4px; font-size: 0.85rem;">
             </div>
 
 
@@ -1190,6 +1200,9 @@
                 const openrouterMdl = document.getElementById('openrouter-model').value.trim();
                 const llamacppServerUrl = document.getElementById('llamacpp-url').value.trim();
                 const llamacppApiKey = 'no-key-required';
+                const llamacppMdl = document.getElementById('llamacpp-model') ? document.getElementById('llamacpp-model').value.trim() : '';
+                const synthesisMdl = document.getElementById('synthesis-model') ? document.getElementById('synthesis-model').value.trim() : '';
+                const agentMdls = document.getElementById('agent-models') ? document.getElementById('agent-models').value.trim() : '';
 
                 let api_key = '';
                 if (provider === 'openrouter') api_key = openrouterKey;
@@ -1219,7 +1232,10 @@
                             api_key: api_key,
                             openrouter_model: openrouterMdl,
                             llamacpp_url: llamacppServerUrl,
-                            llamacpp_api_key: llamacppApiKey
+                            llamacpp_api_key: llamacppApiKey,
+                            llamacpp_model: llamacppMdl,
+                            synthesis_model: synthesisMdl,
+                            agent_models: agentMdls
                         })
                     });
 
@@ -1467,6 +1483,9 @@
         const savedOpenrouterModel = localStorage.getItem('openrouter_model');
         const savedLlamacppUrl = localStorage.getItem('llamacpp_url');
         const savedLlamacppEmbeddingUrl = localStorage.getItem('llamacpp_embedding_url');
+        const savedLlamacppModel = localStorage.getItem('llamacpp_model');
+        const savedSynthesisModel = localStorage.getItem('synthesis_model');
+        const savedAgentModels = localStorage.getItem('agent_models');
 
 
         llmProviderSelect.value = savedProvider;
@@ -1474,6 +1493,9 @@
         if (savedOpenrouterModel) document.getElementById('openrouter-model').value = savedOpenrouterModel;
         if (savedLlamacppUrl) document.getElementById('llamacpp-url').value = savedLlamacppUrl;
         if (savedLlamacppEmbeddingUrl) document.getElementById('llamacpp-embedding-url').value = savedLlamacppEmbeddingUrl;
+        if (savedLlamacppModel) document.getElementById('llamacpp-model').value = savedLlamacppModel;
+        if (savedSynthesisModel) document.getElementById('synthesis-model').value = savedSynthesisModel;
+        if (savedAgentModels) document.getElementById('agent-models').value = savedAgentModels;
 
 
         // Show/hide config based on provider (only openrouter / llamacpp)
@@ -1505,12 +1527,18 @@
             const openrouterModel = document.getElementById('openrouter-model').value.trim();
             const llamacppUrl = document.getElementById('llamacpp-url').value.trim();
             const llamacppEmbeddingUrl = document.getElementById('llamacpp-embedding-url').value.trim();
+            const llamacppModel = document.getElementById('llamacpp-model').value.trim();
+            const synthesisModel = document.getElementById('synthesis-model').value.trim();
+            const agentModels = document.getElementById('agent-models').value.trim();
 
             localStorage.setItem('llm_provider', provider);
             if (openrouterApiKey) localStorage.setItem('openrouter_api_key', openrouterApiKey);
             if (openrouterModel) localStorage.setItem('openrouter_model', openrouterModel);
             if (llamacppUrl) localStorage.setItem('llamacpp_url', llamacppUrl);
             if (llamacppEmbeddingUrl) localStorage.setItem('llamacpp_embedding_url', llamacppEmbeddingUrl);
+            if (llamacppModel) localStorage.setItem('llamacpp_model', llamacppModel);
+            if (synthesisModel) localStorage.setItem('synthesis_model', synthesisModel);
+            if (agentModels) localStorage.setItem('agent_models', agentModels);
 
             apiKeyStatus.textContent = '✓ Saved';
             setTimeout(() => { apiKeyStatus.textContent = ''; }, 2000);
@@ -1557,6 +1585,9 @@
                     const llamacppUrl = localStorage.getItem('llamacpp_url') || 'http://localhost:8080/v1';
                     const llamacppApiKey = 'no-key-required';
                     const llamacppEmbeddingUrl = localStorage.getItem('llamacpp_embedding_url') || 'http://localhost:8080/v1';
+                    const synthesisModel = localStorage.getItem('synthesis_model') || '';
+                    const agentModels = localStorage.getItem('agent_models') || '';
+                    const llamacppModel = localStorage.getItem('llamacpp_model') || 'llama-3.2-1b-instruct';
 
 
                     if (provider === 'openrouter' && !openrouterApiKey) {
@@ -1590,6 +1621,9 @@
                         llamacpp_url: llamacppUrl,
                         llamacpp_api_key: llamacppApiKey,
                         llamacpp_embedding_url: llamacppEmbeddingUrl,
+                        llamacpp_model: llamacppModel,
+                        synthesis_model: synthesisModel,
+                        agent_models: agentModels,
                         vector_word_size: 2,
                         prompt_alignment: 1.0,
                         density: 1.0,
@@ -1863,6 +1897,9 @@
             const llamacppServerUrl = document.getElementById('llamacpp-url').value.trim();
             const llamacppApiKey = 'no-key-required';
             const llamacppEmbUrl = document.getElementById('llamacpp-embedding-url').value.trim();
+            const llamacppMdl = document.getElementById('llamacpp-model') ? document.getElementById('llamacpp-model').value.trim() : 'llama-3.2-1b-instruct';
+            const synthesisMdl = document.getElementById('synthesis-model') ? document.getElementById('synthesis-model').value.trim() : '';
+            const agentMdls = document.getElementById('agent-models') ? document.getElementById('agent-models').value.trim() : '';
 
             params.provider = provider;
             if (provider === 'openrouter') params.api_key = openrouterKey;
@@ -1871,6 +1908,9 @@
             params.llamacpp_url = llamacppServerUrl;
             params.llamacpp_api_key = llamacppApiKey;
             params.llamacpp_embedding_url = llamacppEmbUrl;
+            params.llamacpp_model = llamacppMdl;
+            params.synthesis_model = synthesisMdl;
+            params.agent_models = agentMdls;
 
             runGraph({ params, mode: 'algorithm' }, '/build_and_run_graph');
         });

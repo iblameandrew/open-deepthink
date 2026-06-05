@@ -2239,7 +2239,7 @@ async def run_inference_from_state(payload: dict = Body(...)):
                 node_id = f"agent_{i}_{j}"
                 workflow.add_node(node_id, create_inference_node_function(node_id))
 
-        workflow.add_node("synthesis", create_synthesis_node(llm))
+        workflow.add_node("synthesis", create_synthesis_node(synthesis_llm if 'synthesis_llm' in locals() else llm))
 
         first_layer_nodes = [f"agent_0_{j}" for j in range(len(all_layers_prompts[0]))]
         workflow.set_entry_point(first_layer_nodes[0])
@@ -2314,16 +2314,33 @@ async def build_and_run_graph(payload: dict = Body(...)):
         provider = params.get("provider", "openrouter")
         api_key = params.get("api_key", "")
 
+        # Hoist common config and model choices for per-agent / synthesis support (visible in all branches)
+        openrouter_model = params.get("openrouter_model", "stepfun/step-3.5-flash:free")
+        llamacpp_url = params.get("llamacpp_url", "http://localhost:8080/v1")
+        llamacpp_model = params.get("llamacpp_model", "llama-3.2-1b-instruct")
+        # normalize llamacpp url early
+        llamacpp_url = llamacpp_url.rstrip("/")
+        llamacpp_url = llamacpp_url.replace("/chat/completions", "")
+        llamacpp_url = llamacpp_url.rstrip("/")
+        if not llamacpp_url.endswith("/v1"):
+            llamacpp_url = llamacpp_url + "/v1"
+        llamacpp_api_key = "no-key-required"
+
+        default_agent_model = openrouter_model if provider == "openrouter" else llamacpp_model
+
+        synthesis_model = params.get("synthesis_model", "").strip()
+        agent_models_raw = params.get("agent_models", "").strip()
+        agent_model_list = [m.strip() for m in agent_models_raw.split(",") if m.strip()] if agent_models_raw else []
+
         if provider == "openrouter":
             if not api_key:
                 return JSONResponse(
                     content={"message": "OpenRouter API Key required"}, status_code=400
                 )
-            openrouter_model = params.get(
-                "openrouter_model", "stepfun/step-3.5-flash:free"
-            )
+            # use hoisted openrouter_model as default for agents
+            default_agent_model = openrouter_model
             llm = ChatOpenAI(
-                model=openrouter_model,
+                model=default_agent_model,
                 openai_api_key=api_key,
                 openai_api_base="https://openrouter.ai/api/v1",
                 temperature=0.7,
@@ -2339,7 +2356,7 @@ async def build_and_run_graph(payload: dict = Body(...)):
                     check_embedding_ctx_length=False,
                 )
                 await log_stream.put(
-                    f"--- Initializing Main Agent LLM: OpenRouter ({openrouter_model}) & Embeddings ---"
+                    f"--- Initializing Main Agent LLM: OpenRouter ({default_agent_model}) & Embeddings ---"
                 )
             except Exception as e:
                 embeddings_model = None
@@ -2348,18 +2365,12 @@ async def build_and_run_graph(payload: dict = Body(...)):
                 )
 
         elif provider == "llamacpp":
-            llamacpp_url = params.get("llamacpp_url", "http://localhost:8080/v1")
-            # Normalize URL - remove /chat/completions and trailing slashes
-            llamacpp_url = llamacpp_url.rstrip("/")
-            llamacpp_url = llamacpp_url.replace("/chat/completions", "")
-            llamacpp_url = llamacpp_url.rstrip("/")
-            # Ensure /v1 suffix
-            if not llamacpp_url.endswith("/v1"):
-                llamacpp_url = llamacpp_url + "/v1"
-            llamacpp_api_key = "no-key-required"
+            # use hoisted + normalized llamacpp_url and model
+            default_agent_model = llamacpp_model
             llm = ChatLlamaCpp(
                 base_url=llamacpp_url,
                 api_key=llamacpp_api_key,
+                model=default_agent_model,
                 temperature=0.7,
                 max_tokens=4096,
             )
@@ -2397,6 +2408,34 @@ async def build_and_run_graph(payload: dict = Body(...)):
                 status_code=400,
             )
 
+        # Create synthesis LLM if user specified a different model for synthesis
+        synthesis_llm = llm
+        if synthesis_model and synthesis_model != default_agent_model:
+            if provider == "openrouter":
+                try:
+                    synthesis_llm = ChatOpenAI(
+                        model=synthesis_model,
+                        openai_api_key=api_key,
+                        openai_api_base="https://openrouter.ai/api/v1",
+                        temperature=0.7,
+                        callbacks=[token_tracker],
+                    )
+                    await log_stream.put(f"--- Using separate SYNTHESIS model: {synthesis_model} ---")
+                except Exception as e:
+                    await log_stream.put(f"WARNING: Could not init separate synthesis LLM, falling back: {e}")
+            elif provider == "llamacpp":
+                try:
+                    synthesis_llm = ChatLlamaCpp(
+                        base_url=llamacpp_url,
+                        api_key=llamacpp_api_key,
+                        model=synthesis_model,
+                        temperature=0.7,
+                        max_tokens=4096,
+                    )
+                    await log_stream.put(f"--- Using separate SYNTHESIS model: {synthesis_model} ---")
+                except Exception as e:
+                    await log_stream.put(f"WARNING: Could not init separate synthesis LLM, falling back: {e}")
+
         # Custom Debug Mode Logic (Prioritize Mock LLMs but KEEP Embeddings if available)
         is_debug = (
             params.get("coder_debug_mode") == "true"
@@ -2409,6 +2448,7 @@ async def build_and_run_graph(payload: dict = Body(...)):
             await log_stream.put(f"--- 💻 CODER DEBUG MODE ENABLED 💻 ---")
             llm = CoderMockLLM()
             summarizer_llm = CoderMockLLM()
+            synthesis_llm = CoderMockLLM()
             if embeddings_model:
                 await log_stream.put(
                     f"--- 🧠 Debug Mode: Using REAL Embeddings for RAG ---"
@@ -2770,13 +2810,41 @@ Your Specialty is: {persona.get("specialty", "Analysis")}.
     # Building Graph Nodes
     workflow = StateGraph(GraphState)
 
-    # Add Nodes
+    # Per-agent model support: cycle through agent_model_list (or default)
+    # Build llm per agent node
+    effective_models = agent_model_list if agent_model_list else [default_agent_model]
     for i, layer_prompts in enumerate(all_layers_prompts):
         for j, _ in enumerate(layer_prompts):
             node_id = f"agent_{i}_{j}"
-            workflow.add_node(node_id, create_agent_node(llm, node_id))
+            m_idx = (i * max(1, len(layer_prompts)) + j) % len(effective_models)
+            model_for_this_agent = effective_models[m_idx]
+            if is_debug:
+                per_agent_llm = CoderMockLLM()
+            elif provider == "openrouter":
+                try:
+                    per_agent_llm = ChatOpenAI(
+                        model=model_for_this_agent,
+                        openai_api_key=api_key,
+                        openai_api_base="https://openrouter.ai/api/v1",
+                        temperature=0.7,
+                        callbacks=[token_tracker],
+                    )
+                except Exception:
+                    per_agent_llm = llm
+            else:
+                try:
+                    per_agent_llm = ChatLlamaCpp(
+                        base_url=llamacpp_url,
+                        api_key=llamacpp_api_key,
+                        model=model_for_this_agent,
+                        temperature=0.7,
+                        max_tokens=4096,
+                    )
+                except Exception:
+                    per_agent_llm = llm
+            workflow.add_node(node_id, create_agent_node(per_agent_llm, node_id))
 
-    workflow.add_node("synthesis", create_synthesis_node(llm))
+    workflow.add_node("synthesis", create_synthesis_node(synthesis_llm))
     workflow.add_node("code_execution", create_code_execution_node(llm))
     workflow.add_node("archive_epoch", create_archive_epoch_outputs_node())
     workflow.add_node(
@@ -3374,23 +3442,22 @@ async def start_distillation(payload: dict = Body(...)):
                 "--- ⚗️ Distillation Debug Mode: using DistillationMockLLM ---"
             )
         else:
+            # For distillation, use synthesis_model as override if provided, else main model
+            distil_model = payload.get("synthesis_model", "").strip() or payload.get("openrouter_model", "stepfun/step-3.5-flash:free") if provider == "openrouter" else payload.get("llamacpp_model", "llama-3.2-1b-instruct")
             if provider == "openrouter":
                 if not api_key:
                     return JSONResponse(
                         content={"message": "OpenRouter API Key required"},
                         status_code=400,
                     )
-                openrouter_model = payload.get(
-                    "openrouter_model", "stepfun/step-3.5-flash:free"
-                )
                 llm = ChatOpenAI(
-                    model=openrouter_model,
+                    model=distil_model,
                     openai_api_key=api_key,
                     openai_api_base="https://openrouter.ai/api/v1",
                     temperature=0.7,
                 )
                 await log_stream.put(
-                    f"--- Distillation LLM: OpenRouter ({openrouter_model}) ---"
+                    f"--- Distillation LLM: OpenRouter ({distil_model}) ---"
                 )
             elif provider == "llamacpp":
                 llamacpp_url = payload.get("llamacpp_url", "http://localhost:8080/v1")
@@ -3401,6 +3468,7 @@ async def start_distillation(payload: dict = Body(...)):
                 llm = ChatLlamaCpp(
                     base_url=llamacpp_url,
                     api_key=llamacpp_api_key,
+                    model=distil_model,
                     temperature=0.7,
                     max_tokens=4096,
                 )
