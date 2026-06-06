@@ -1,4 +1,5 @@
-![thumbnail](https://github.com/user-attachments/assets/13694758-a5c9-40c5-9c07-c7a168e660cf)
+<img width="1248" height="832" alt="image" src="https://github.com/user-attachments/assets/ffd223ee-a875-4213-a65f-23c2f7a7807c" />
+
 
 # local-deepthink: Democratizing Deep Algorithmic Thought 🧠
 
