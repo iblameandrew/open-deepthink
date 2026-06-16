@@ -123,7 +123,7 @@ load_dotenv()
 # Only OpenRouter and LlamaCpp server providers are supported.
 # API keys are provided via the UI (stored in browser localStorage) or params.
 
-app = FastAPI(title="army of agents to think about your problem.")
+app = FastAPI(title="open-deepthink")
 app.mount("/js", StaticFiles(directory="js"), name="js")
 app.mount("/css", StaticFiles(directory="css"), name="css")
 app.mount("/static", StaticFiles(directory="static"), name="static")
