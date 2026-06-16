@@ -44,10 +44,10 @@ def t7():
     mod = importlib.import_module("app")
     assert mod.app is not None
     paths = [r.path for r in mod.app.routes if hasattr(r, "path")]
-    expected = ["/", "/run_inference_from_state", "/build_and_run_graph", "/export_qnn/{session_id}", "/import_qnn", "/upload_documents", "/chat", "/diagnostic_chat", "/harvest", "/stream_log", "/log_stream", "/download_report/{session_id}", "/start_distillation", "/stop_distillation", "/distillation_data", "/download_distillation"]
+    expected = ["/", "/run_inference_from_state", "/build_and_run_graph", "/export_qnn/{session_id}", "/import_qnn", "/upload_documents", "/upload_code_files", "/chat", "/diagnostic_chat", "/harvest", "/stream_log", "/log_stream", "/download_report/{session_id}", "/start_distillation", "/stop_distillation", "/distillation_data", "/download_distillation"]
     missing = [e for e in expected if e not in paths]
     assert not missing, f"Missing endpoints: {missing}"
-chk("import app.py + verify 16 endpoints exist", t7)
+chk("import app.py + verify 17 endpoints exist", t7)
 
 for name, status, err in results:
     line = f"  [{status}] {name}"

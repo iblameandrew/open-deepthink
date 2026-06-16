@@ -79,6 +79,15 @@ def t6():
 chk("POST /upload_documents exists", t6)
 
 
+# Upload code files
+def t6b():
+    routes = [r for r in app.routes if getattr(r, "path", "") == "/upload_code_files"]
+    assert routes
+
+
+chk("POST /upload_code_files exists", t6b)
+
+
 # Chat
 def t7():
     routes = [r for r in app.routes if getattr(r, "path", "") == "/chat"]
@@ -197,6 +206,7 @@ def t18():
         "/export_qnn/{session_id}",
         "/import_qnn",
         "/upload_documents",
+        "/upload_code_files",
         "/chat",
         "/diagnostic_chat",
         "/harvest",

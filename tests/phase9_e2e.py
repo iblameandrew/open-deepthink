@@ -376,6 +376,25 @@ def t16():
 chk("/upload_documents skips non-PDF files", t16)
 
 
+# 16b) /upload_code_files with valid and invalid files
+def t16b():
+    if not chk_passed:
+        raise RuntimeError("TestClient not initialized")
+    files = [
+        ("files", ("main.py", b"print('hello')\n", "text/x-python")),
+        ("files", ("image.png", b"\x89PNG", "image/png")),
+    ]
+    r = client.post("/upload_code_files", files=files)
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["files"]) == 1
+    assert body["files"][0]["filename"] == "main.py"
+    assert "hello" in body["combined_text"]
+
+
+chk("/upload_code_files loads code and skips unsupported types", t16b)
+
+
 # 17) /distillation_data when no active graph
 def t17():
     if not chk_passed:

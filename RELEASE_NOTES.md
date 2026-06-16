@@ -1,3 +1,26 @@
+# Release Notes — `0.1.3`
+
+**Tag:** `0.1.3`
+**Date:** 2026-06-16
+**Tagline:** "Attach source code files as context in Brainstorming and Algorithm Design"
+
+## ✨ Features
+
+### Code file attachments
+
+* **Brainstorming** — New **Attach Code** button alongside PDF attachments, plus a paperclip button in the NodeChat input bar. Supports `.py`, `.js`, `.ts`, `.java`, `.go`, `.rs`, and 30+ other text/code extensions.
+* **Algorithm Design** — Attach code files above the prompt; their contents are injected into the graph run as context.
+* **Backend** — New `POST /upload_code_files` endpoint reads uploaded source files (UTF-8 with fallback), caps total context at 50k chars, and returns fenced code blocks for the LLM.
+
+### Files
+
+* `app.py` — `/upload_code_files` endpoint; algorithm mode merges attached code into prompt
+* `index.html` — attachment UI for both modes
+* `js/components/node-chat.js` — paperclip attach button in chat input
+* `css/node-chat.css` — attach button styles
+
+---
+
 # Release Notes — `0.1.2`
 
 **Tag:** `0.1.2`

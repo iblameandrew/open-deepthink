@@ -340,6 +340,25 @@ def t18():
 chk("/upload_documents handles non-PDF gracefully", t18)
 
 
+# 18b) Verify error handling in upload_code_files
+def t18b():
+    import importlib
+
+    mod = importlib.import_module("app")
+    from fastapi.testclient import TestClient
+
+    client = TestClient(mod.app)
+    r = client.post(
+        "/upload_code_files", files=[("files", ("photo.jpg", b"\xff\xd8\xff", "image/jpeg"))]
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["files"]) == 0
+
+
+chk("/upload_code_files handles unsupported types gracefully", t18b)
+
+
 # 19) Test that the app's GraphState is the one used at runtime
 def t19():
     # The agent_node is created with the app's GraphState

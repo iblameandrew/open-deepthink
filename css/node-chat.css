@@ -769,6 +769,31 @@
   color: rgba(255, 255, 255, 0.25);
 }
 
+.node-chat__attach-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  flex-shrink: 0;
+}
+
+.node-chat__attach-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.node-chat__attach-btn:disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
+}
+
 .node-chat__send-btn {
   width: 44px;
   height: 44px;

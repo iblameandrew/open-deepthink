@@ -887,23 +887,30 @@
                 </div>
             </div>
 
-            <!-- PDF Upload Section -->
-            <div id="pdf-upload-section"
+            <!-- Attachments Section -->
+            <div id="attachments-section"
                 style="margin-bottom: 15px; padding: 1rem; background: #1a1d24; border-radius: 8px; border: 1px dashed #444;">
                 <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                     <label for="pdf-file-input"
-                        style="cursor: pointer; background: #262730; padding: 8px 16px; border-radius: 6px; display: flex; align-items: center; gap: 6px; font-size: 0.9rem;">
+                        style="cursor: pointer; background: #262730; padding: 8px 16px; border-radius: 6px; display: flex; align-items: center; gap: 6px; font-size: 0.9rem; width: auto;">
                         📄 Attach PDFs
                     </label>
                     <input type="file" id="pdf-file-input" accept=".pdf" multiple style="display: none;">
-                    <span id="pdf-upload-status" style="color: #888; font-size: 0.85rem;"></span>
-                    <button type="button" id="clear-pdfs-btn"
+                    <label for="code-file-input"
+                        style="cursor: pointer; background: #262730; padding: 8px 16px; border-radius: 6px; display: flex; align-items: center; gap: 6px; font-size: 0.9rem; width: auto;">
+                        💻 Attach Code
+                    </label>
+                    <input type="file" id="code-file-input"
+                        accept=".py,.js,.ts,.jsx,.tsx,.java,.c,.cpp,.h,.hpp,.go,.rs,.rb,.php,.sh,.bash,.sql,.html,.css,.json,.yaml,.yml,.toml,.md,.txt,.xml,.vue,.svelte,.kt,.swift,.r,.scala,.lua,.pl,.zig,.cs,.m,.mm,.ipynb"
+                        multiple style="display: none;">
+                    <span id="attachment-upload-status" style="color: #888; font-size: 0.85rem;"></span>
+                    <button type="button" id="clear-attachments-btn"
                         style="display: none; background: #444; padding: 6px 12px; border-radius: 4px; font-size: 0.8rem; width: auto;">Clear
                         All</button>
                 </div>
-                <div id="attached-documents-list" style="margin-top: 10px; display: none;">
-                    <div style="font-size: 0.85rem; color: #888; margin-bottom: 6px;">Attached Documents:</div>
-                    <div id="documents-list" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                <div id="attached-files-list" style="margin-top: 10px; display: none;">
+                    <div style="font-size: 0.85rem; color: #888; margin-bottom: 6px;">Attached Files:</div>
+                    <div id="files-list" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
                 </div>
             </div>
 
@@ -1027,6 +1034,26 @@
                                 value="ENFJ"><label for="mbti-enfj">ENFJ (Protagonist)</label></div>
                         <div class="mbti-option"><input type="checkbox" id="mbti-entj" name="mbti_archetypes"
                                 value="ENTJ"><label for="mbti-entj">ENTJ (Commander)</label></div>
+                    </div>
+                    <div id="algorithm-attachments-section"
+                        style="margin-bottom: 12px; padding: 1rem; background: #1a1d24; border-radius: 8px; border: 1px dashed #444;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <label for="algorithm-code-file-input"
+                                style="cursor: pointer; background: #262730; padding: 8px 16px; border-radius: 6px; display: flex; align-items: center; gap: 6px; font-size: 0.9rem; width: auto;">
+                                💻 Attach Code
+                            </label>
+                            <input type="file" id="algorithm-code-file-input"
+                                accept=".py,.js,.ts,.jsx,.tsx,.java,.c,.cpp,.h,.hpp,.go,.rs,.rb,.php,.sh,.bash,.sql,.html,.css,.json,.yaml,.yml,.toml,.md,.txt,.xml,.vue,.svelte,.kt,.swift,.r,.scala,.lua,.pl,.zig,.cs,.m,.mm,.ipynb"
+                                multiple style="display: none;">
+                            <span id="algorithm-attachment-status" style="color: #888; font-size: 0.85rem;"></span>
+                            <button type="button" id="clear-algorithm-attachments-btn"
+                                style="display: none; background: #444; padding: 6px 12px; border-radius: 4px; font-size: 0.8rem; width: auto;">Clear
+                                All</button>
+                        </div>
+                        <div id="algorithm-attached-files-list" style="margin-top: 10px; display: none;">
+                            <div style="font-size: 0.85rem; color: #888; margin-bottom: 6px;">Attached Code Files:</div>
+                            <div id="algorithm-files-list" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                        </div>
                     </div>
                     <label for="prompt">Prompt:</label>
                     <textarea id="prompt" name="prompt" required>
@@ -1549,96 +1576,186 @@
 
         // Brainstorm mode state - chat history and document context
         let brainstormChatHistory = [];  // Array of {role: 'user'|'assistant', content: string}
-        let brainstormDocumentContext = '';  // Combined extracted text from PDFs
-        let attachedDocuments = [];  // Array of {filename: string, charCount: number}
+        let brainstormDocumentContext = '';  // Combined extracted text from PDFs + code files
+        let attachedDocuments = [];  // PDFs: {filename, text, char_count, type: 'pdf'}
+        let attachedCodeFiles = [];  // Code: {filename, text, char_count, extension, type: 'code'}
+        let algorithmCodeFiles = [];  // Algorithm mode code attachments
         let nodeChatInstance = null;  // NodeChat component instance
 
-        // PDF upload elements
-        const pdfFileInput = document.getElementById('pdf-file-input');
-        const pdfUploadStatus = document.getElementById('pdf-upload-status');
-        const clearPdfsBtn = document.getElementById('clear-pdfs-btn');
-        const attachedDocumentsList = document.getElementById('attached-documents-list');
-        const documentsList = document.getElementById('documents-list');
+        function rebuildBrainstormContext() {
+            const pdfParts = attachedDocuments.map(d => `[Document: ${d.filename}]\n${d.text}`);
+            const codeParts = attachedCodeFiles.map(f =>
+                `[Code File: ${f.filename}]\n\`\`\`${f.extension || ''}\n${f.text}\n\`\`\``
+            );
+            brainstormDocumentContext = [...pdfParts, ...codeParts].join('\n\n---\n\n');
+        }
 
-        // PDF Upload Handler
-        pdfFileInput.addEventListener('change', async (e) => {
-            const files = e.target.files;
-            if (!files.length) return;
+        function rebuildAlgorithmContext() {
+            return algorithmCodeFiles.map(f =>
+                `[Code File: ${f.filename}]\n\`\`\`${f.extension || ''}\n${f.text}\n\`\`\``
+            ).join('\n\n---\n\n');
+        }
 
-            pdfUploadStatus.textContent = 'Uploading...';
-            pdfUploadStatus.style.color = '#888';
+        function renderAttachmentBadges(container, items) {
+            container.innerHTML = '';
+            items.forEach(item => {
+                const badge = document.createElement('span');
+                badge.style.cssText = 'background: #262730; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; display: flex; align-items: center; gap: 4px;';
+                const icon = item.type === 'pdf' ? '📄' : '💻';
+                badge.innerHTML = `${icon} ${item.filename} <span style="color: #666;">(${item.char_count} chars)</span>`;
+                container.appendChild(badge);
+            });
+        }
 
+        async function uploadAttachments(files, endpoint, key) {
             const formData = new FormData();
             for (let i = 0; i < files.length; i++) {
                 formData.append('files', files[i]);
             }
+            const response = await fetch(endpoint, { method: 'POST', body: formData });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.message || 'Upload failed');
+            }
+            return result[key] || [];
+        }
 
-            try {
-                const response = await fetch('/upload_documents', {
-                    method: 'POST',
-                    body: formData
-                });
+        // Attachment upload elements (brainstorm)
+        const pdfFileInput = document.getElementById('pdf-file-input');
+        const codeFileInput = document.getElementById('code-file-input');
+        const attachmentUploadStatus = document.getElementById('attachment-upload-status');
+        const clearAttachmentsBtn = document.getElementById('clear-attachments-btn');
+        const attachedFilesList = document.getElementById('attached-files-list');
+        const filesList = document.getElementById('files-list');
 
-                const result = await response.json();
+        const algorithmCodeFileInput = document.getElementById('algorithm-code-file-input');
+        const algorithmAttachmentStatus = document.getElementById('algorithm-attachment-status');
+        const clearAlgorithmAttachmentsBtn = document.getElementById('clear-algorithm-attachments-btn');
+        const algorithmAttachedFilesList = document.getElementById('algorithm-attached-files-list');
+        const algorithmFilesList = document.getElementById('algorithm-files-list');
 
-                if (response.ok) {
-                    const newDocs = result.documents || [];
-                    let addedCount = 0;
+        function updateBrainstormAttachmentUI(addedCount) {
+            const allItems = [...attachedDocuments, ...attachedCodeFiles];
+            const totalChars = allItems.reduce((sum, item) => sum + item.char_count, 0);
 
-                    // Append new unique documents
-                    newDocs.forEach(doc => {
-                        if (!attachedDocuments.some(existing => existing.filename === doc.filename)) {
-                            attachedDocuments.push(doc);
-                            addedCount++;
-                        }
-                    });
-
-                    // Re-build context from all attached documents
-                    brainstormDocumentContext = attachedDocuments.map(d => `[Document: ${d.filename}]\n${d.text}`).join('\n\n---\n\n');
-
-                    const totalChars = attachedDocuments.reduce((sum, doc) => sum + doc.char_count, 0);
-
-                    if (addedCount > 0) {
-                        pdfUploadStatus.textContent = `✓ Added ${addedCount} new document(s). Total: ${attachedDocuments.length} (${totalChars} chars)`;
-                        pdfUploadStatus.style.color = '#28a745';
-                    } else {
-                        pdfUploadStatus.textContent = `⚠ Documents already attached. Total: ${attachedDocuments.length}`;
-                        pdfUploadStatus.style.color = '#e0a800';
-                    }
-
-                    // Update documents list display
-                    documentsList.innerHTML = '';
-                    attachedDocuments.forEach(doc => {
-                        const badge = document.createElement('span');
-                        badge.style.cssText = 'background: #262730; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; display: flex; align-items: center; gap: 4px;';
-                        badge.innerHTML = `📄 ${doc.filename} <span style="color: #666;">(${doc.char_count} chars)</span>`;
-                        documentsList.appendChild(badge);
-                    });
-
-                    attachedDocumentsList.style.display = 'block';
-                    clearPdfsBtn.style.display = 'inline-block';
-
-                } else {
-                    pdfUploadStatus.textContent = `Error: ${result.message}`;
-                    pdfUploadStatus.style.color = '#ff4b4b';
-                }
-            } catch (error) {
-                pdfUploadStatus.textContent = `Error: ${error.message}`;
-                pdfUploadStatus.style.color = '#ff4b4b';
+            if (addedCount > 0) {
+                attachmentUploadStatus.textContent = `✓ Added ${addedCount} new file(s). Total: ${allItems.length} (${totalChars} chars)`;
+                attachmentUploadStatus.style.color = '#28a745';
+            } else if (allItems.length > 0) {
+                attachmentUploadStatus.textContent = `⚠ Files already attached. Total: ${allItems.length}`;
+                attachmentUploadStatus.style.color = '#e0a800';
             }
 
-            // Clear the input for re-selection
+            renderAttachmentBadges(filesList, allItems);
+            attachedFilesList.style.display = allItems.length ? 'block' : 'none';
+            clearAttachmentsBtn.style.display = allItems.length ? 'inline-block' : 'none';
+        }
+
+        pdfFileInput.addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (!files.length) return;
+
+            attachmentUploadStatus.textContent = 'Uploading PDFs...';
+            attachmentUploadStatus.style.color = '#888';
+
+            try {
+                const newDocs = await uploadAttachments(files, '/upload_documents', 'documents');
+                let addedCount = 0;
+                newDocs.forEach(doc => {
+                    if (!attachedDocuments.some(existing => existing.filename === doc.filename)) {
+                        attachedDocuments.push({ ...doc, type: 'pdf' });
+                        addedCount++;
+                    }
+                });
+                rebuildBrainstormContext();
+                updateBrainstormAttachmentUI(addedCount);
+            } catch (error) {
+                attachmentUploadStatus.textContent = `Error: ${error.message}`;
+                attachmentUploadStatus.style.color = '#ff4b4b';
+            }
+
             pdfFileInput.value = '';
         });
 
-        // Clear PDFs button handler
-        clearPdfsBtn.addEventListener('click', () => {
+        codeFileInput.addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (!files.length) return;
+
+            attachmentUploadStatus.textContent = 'Uploading code files...';
+            attachmentUploadStatus.style.color = '#888';
+
+            try {
+                const newFiles = await uploadAttachments(files, '/upload_code_files', 'files');
+                let addedCount = 0;
+                newFiles.forEach(file => {
+                    if (!attachedCodeFiles.some(existing => existing.filename === file.filename)) {
+                        attachedCodeFiles.push({ ...file, type: 'code' });
+                        addedCount++;
+                    }
+                });
+                rebuildBrainstormContext();
+                updateBrainstormAttachmentUI(addedCount);
+            } catch (error) {
+                attachmentUploadStatus.textContent = `Error: ${error.message}`;
+                attachmentUploadStatus.style.color = '#ff4b4b';
+            }
+
+            codeFileInput.value = '';
+        });
+
+        clearAttachmentsBtn.addEventListener('click', () => {
             brainstormDocumentContext = '';
             attachedDocuments = [];
-            documentsList.innerHTML = '';
-            attachedDocumentsList.style.display = 'none';
-            clearPdfsBtn.style.display = 'none';
-            pdfUploadStatus.textContent = '';
+            attachedCodeFiles = [];
+            filesList.innerHTML = '';
+            attachedFilesList.style.display = 'none';
+            clearAttachmentsBtn.style.display = 'none';
+            attachmentUploadStatus.textContent = '';
+        });
+
+        algorithmCodeFileInput.addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (!files.length) return;
+
+            algorithmAttachmentStatus.textContent = 'Uploading code files...';
+            algorithmAttachmentStatus.style.color = '#888';
+
+            try {
+                const newFiles = await uploadAttachments(files, '/upload_code_files', 'files');
+                let addedCount = 0;
+                newFiles.forEach(file => {
+                    if (!algorithmCodeFiles.some(existing => existing.filename === file.filename)) {
+                        algorithmCodeFiles.push({ ...file, type: 'code' });
+                        addedCount++;
+                    }
+                });
+
+                const totalChars = algorithmCodeFiles.reduce((sum, f) => sum + f.char_count, 0);
+                if (addedCount > 0) {
+                    algorithmAttachmentStatus.textContent = `✓ Added ${addedCount} file(s). Total: ${algorithmCodeFiles.length} (${totalChars} chars)`;
+                    algorithmAttachmentStatus.style.color = '#28a745';
+                } else {
+                    algorithmAttachmentStatus.textContent = `⚠ Files already attached. Total: ${algorithmCodeFiles.length}`;
+                    algorithmAttachmentStatus.style.color = '#e0a800';
+                }
+
+                renderAttachmentBadges(algorithmFilesList, algorithmCodeFiles);
+                algorithmAttachedFilesList.style.display = algorithmCodeFiles.length ? 'block' : 'none';
+                clearAlgorithmAttachmentsBtn.style.display = algorithmCodeFiles.length ? 'inline-block' : 'none';
+            } catch (error) {
+                algorithmAttachmentStatus.textContent = `Error: ${error.message}`;
+                algorithmAttachmentStatus.style.color = '#ff4b4b';
+            }
+
+            algorithmCodeFileInput.value = '';
+        });
+
+        clearAlgorithmAttachmentsBtn.addEventListener('click', () => {
+            algorithmCodeFiles = [];
+            algorithmFilesList.innerHTML = '';
+            algorithmAttachedFilesList.style.display = 'none';
+            clearAlgorithmAttachmentsBtn.style.display = 'none';
+            algorithmAttachmentStatus.textContent = '';
         });
 
         // Mode switching and API key elements
@@ -1826,6 +1943,20 @@
                         chat.removeThinking();
                         chat.finishStreaming();
                     }
+                },
+                onAttachCode: async (files) => {
+                    attachmentUploadStatus.textContent = 'Uploading code files...';
+                    attachmentUploadStatus.style.color = '#888';
+                    const newFiles = await uploadAttachments(files, '/upload_code_files', 'files');
+                    let addedCount = 0;
+                    newFiles.forEach(file => {
+                        if (!attachedCodeFiles.some(existing => existing.filename === file.filename)) {
+                            attachedCodeFiles.push({ ...file, type: 'code' });
+                            addedCount++;
+                        }
+                    });
+                    rebuildBrainstormContext();
+                    updateBrainstormAttachmentUI(addedCount);
                 },
                 onClear: () => {
                     brainstormChatHistory = [];
@@ -2163,7 +2294,12 @@
             params.synthesis_model = synthesisMdl;
             params.agent_models = agentMdls;
 
-            runGraph({ params, mode: 'algorithm' }, '/build_and_run_graph');
+            const algorithmDocContext = rebuildAlgorithmContext();
+            runGraph({
+                params,
+                mode: 'algorithm',
+                document_context: algorithmDocContext
+            }, '/build_and_run_graph');
         });
 
         qnnFileInput.addEventListener('change', (e) => {

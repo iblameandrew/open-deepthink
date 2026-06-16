@@ -2564,7 +2564,21 @@ async def build_and_run_graph(payload: dict = Body(...)):
             status_code=500,
         )
 
+    document_context = payload.get("document_context", "")
     user_prompt = params.get("prompt")
+
+    if document_context and mode == "algorithm":
+        capped_context = document_context[:50000]
+        user_prompt = (
+            f"{user_prompt}\n\n--- Attached Code Context ---\n{capped_context}"
+            if user_prompt
+            else capped_context
+        )
+        params["prompt"] = user_prompt
+        await log_stream.put(
+            f"LOG: Code context attached to algorithm prompt ({len(capped_context)} characters)."
+        )
+
     detected_is_code = False
 
     # Only perform code detection if not in brainstorm mode
@@ -3266,6 +3280,135 @@ async def upload_documents(files: List[UploadFile] = File(...)):
 
     except Exception as e:
         error_message = f"Failed to process documents: {e}"
+        await log_stream.put(error_message)
+        return JSONResponse(
+            content={"message": error_message, "traceback": traceback.format_exc()},
+            status_code=500,
+        )
+
+
+CODE_FILE_EXTENSIONS = {
+    ".py",
+    ".js",
+    ".ts",
+    ".jsx",
+    ".tsx",
+    ".java",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".go",
+    ".rs",
+    ".rb",
+    ".php",
+    ".sh",
+    ".bash",
+    ".sql",
+    ".html",
+    ".css",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".md",
+    ".txt",
+    ".xml",
+    ".vue",
+    ".svelte",
+    ".kt",
+    ".swift",
+    ".r",
+    ".scala",
+    ".lua",
+    ".pl",
+    ".zig",
+    ".cs",
+    ".m",
+    ".mm",
+    ".ipynb",
+}
+
+
+def _decode_text_file(content: bytes) -> str:
+    for encoding in ("utf-8", "utf-8-sig", "latin-1"):
+        try:
+            return content.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return content.decode("utf-8", errors="replace")
+
+
+@app.post("/upload_code_files")
+async def upload_code_files(files: List[UploadFile] = File(...)):
+    """
+    Uploads source code / text files and returns their contents for use as context.
+    """
+    MAX_TOTAL_CHARS = 50000
+
+    extracted_files = []
+    total_chars = 0
+
+    try:
+        for file in files:
+            ext = ""
+            if file.filename and "." in file.filename:
+                ext = "." + file.filename.rsplit(".", 1)[-1].lower()
+
+            if ext not in CODE_FILE_EXTENSIONS:
+                await log_stream.put(
+                    f"WARNING: Skipping unsupported code file type: {file.filename}"
+                )
+                continue
+
+            content = await file.read()
+            file_text = _decode_text_file(content)
+
+            remaining_chars = MAX_TOTAL_CHARS - total_chars
+            if remaining_chars <= 0:
+                await log_stream.put(
+                    "WARNING: Character limit reached. Skipping remaining code files."
+                )
+                break
+
+            if len(file_text) > remaining_chars:
+                file_text = file_text[:remaining_chars]
+                await log_stream.put(
+                    f"WARNING: Truncated {file.filename} to fit character limit."
+                )
+
+            total_chars += len(file_text)
+            extracted_files.append(
+                {
+                    "filename": file.filename,
+                    "text": file_text,
+                    "char_count": len(file_text),
+                    "extension": ext.lstrip("."),
+                }
+            )
+
+            await log_stream.put(
+                f"SUCCESS: Loaded {len(file_text)} characters from code file {file.filename}"
+            )
+
+        combined_text = "\n\n---\n\n".join(
+            [
+                f"[Code File: {doc['filename']}]\n```{doc.get('extension', '')}\n{doc['text']}\n```"
+                for doc in extracted_files
+            ]
+        )
+
+        return JSONResponse(
+            content={
+                "message": f"Successfully loaded {len(extracted_files)} code file(s).",
+                "files": extracted_files,
+                "combined_text": combined_text,
+                "total_chars": total_chars,
+            }
+        )
+
+    except Exception as e:
+        error_message = f"Failed to process code files: {e}"
         await log_stream.put(error_message)
         return JSONResponse(
             content={"message": error_message, "traceback": traceback.format_exc()},
