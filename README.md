@@ -118,7 +118,7 @@ These artifacts are the real product. The final synthesized answer is a byproduc
 
 - Built on **LangGraph** with real cyclic graphs, conditional routing (epoch gateway), parallel layer execution, and proper state management — not a pile of sequential chains.
 - 195 passing tests across 11 phases, including regression tests for every bug fixed in the 0.0.3 quality release.
-- Clean provider model: only OpenRouter (cloud) and llama.cpp server (local). Per-agent and per-synthesis model selection supported.
+- Clean provider model: OpenRouter, Requesty (both OpenAI-compatible cloud) and llama.cpp server (local). Per-agent and per-synthesis model selection supported.
 - Robust JSON handling, token tracking, streaming logs, RAPTOR hierarchical indexing, and safe(ish) code execution.
 - Real export/import of full QNN state.
 - Massive scale supported when you ask for it (Manual/Massive mode will happily run 50×50+ if your budget allows).
@@ -139,7 +139,7 @@ launch.bat                       # or: python app.py
 
 Open http://127.0.0.1:8000.
 
-**Supported providers**: OpenRouter (bring your own key) and local llama.cpp server.
+**Supported providers**: OpenRouter and Requesty (bring your own key) and local llama.cpp server.
 
 See the in-app UI for the three modes, topology visualization, token budgeting (especially important for Distillation), and export controls.
 
