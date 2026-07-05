@@ -1,3 +1,27 @@
+# Release Notes — `0.1.5`
+
+**Tag:** `0.1.5`
+**Date:** 2026-07-05
+**Tagline:** "Attach entire repositories as context in Brainstorming and Algorithm Design"
+
+## ✨ Features
+
+### Repository folder attachments
+
+* **Brainstorming** — New **Attach Repository** button alongside PDF and code attachments, plus a folder button in the NodeChat input bar. Select a local project folder and the QNN ingests its source files as human context.
+* **Algorithm Design** — Attach a full repository above the prompt; prioritized file contents are injected into the graph run.
+* **Backend** — New `POST /upload_repository` endpoint scans uploaded folders, skips common vendor/build/cache paths (`node_modules`, `.git`, `__pycache__`, lockfiles, binaries), prioritizes README/config/entry files, and caps total context at 50k chars across up to 500 files.
+* **Paths preserved** — Each included file keeps its repository-relative path so agents can reason about project structure.
+
+### Files
+
+* `app.py` — `/upload_repository` endpoint and shared code-file helpers
+* `index.html` — repository attachment UI and upload flow for both modes
+* `js/components/node-chat.js` — folder attach button in chat input
+* `deepthink/__init__.py` — version bump to `0.1.5`
+
+---
+
 # Release Notes — `0.1.4`
 
 **Tag:** `0.1.4`

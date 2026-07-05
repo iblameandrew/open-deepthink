@@ -182,6 +182,8 @@
                     <input type="file" id="code-file-input"
                         accept=".py,.js,.ts,.jsx,.tsx,.java,.c,.cpp,.h,.hpp,.go,.rs,.rb,.php,.sh,.bash,.sql,.html,.css,.json,.yaml,.yml,.toml,.md,.txt,.xml,.vue,.svelte,.kt,.swift,.r,.scala,.lua,.pl,.zig,.cs,.m,.mm,.ipynb"
                         multiple style="display: none;">
+                    <label for="repo-folder-input" class="app-file-label">📁 Attach Repository</label>
+                    <input type="file" id="repo-folder-input" webkitdirectory directory multiple style="display: none;">
                     <span id="attachment-upload-status" class="app-status"></span>
                     <button type="button" id="clear-attachments-btn" class="app-btn--ghost hidden">Clear All</button>
                 </div>
@@ -318,6 +320,8 @@
                             <input type="file" id="algorithm-code-file-input"
                                 accept=".py,.js,.ts,.jsx,.tsx,.java,.c,.cpp,.h,.hpp,.go,.rs,.rb,.php,.sh,.bash,.sql,.html,.css,.json,.yaml,.yml,.toml,.md,.txt,.xml,.vue,.svelte,.kt,.swift,.r,.scala,.lua,.pl,.zig,.cs,.m,.mm,.ipynb"
                                 multiple style="display: none;">
+                            <label for="algorithm-repo-folder-input" class="app-file-label">📁 Attach Repository</label>
+                            <input type="file" id="algorithm-repo-folder-input" webkitdirectory directory multiple style="display: none;">
                             <span id="algorithm-attachment-status" class="app-status"></span>
                             <button type="button" id="clear-algorithm-attachments-btn" class="app-btn--ghost hidden">Clear All</button>
                         </div>
@@ -874,21 +878,32 @@
         let brainstormDocumentContext = '';  // Combined extracted text from PDFs + code files
         let attachedDocuments = [];  // PDFs: {filename, text, char_count, type: 'pdf'}
         let attachedCodeFiles = [];  // Code: {filename, text, char_count, extension, type: 'code'}
+        let attachedRepositories = [];  // Repos: {repo_name, files, char_count, file_count, type: 'repo'}
         let algorithmCodeFiles = [];  // Algorithm mode code attachments
+        let algorithmRepositories = [];  // Algorithm mode repository attachments
         let nodeChatInstance = null;  // NodeChat component instance
+
+        function formatRepoContext(repo) {
+            return repo.files.map(f =>
+                `[Repository: ${repo.repo_name}/${f.filename}]\n\`\`\`${f.extension || ''}\n${f.text}\n\`\`\``
+            ).join('\n\n---\n\n');
+        }
 
         function rebuildBrainstormContext() {
             const pdfParts = attachedDocuments.map(d => `[Document: ${d.filename}]\n${d.text}`);
             const codeParts = attachedCodeFiles.map(f =>
                 `[Code File: ${f.filename}]\n\`\`\`${f.extension || ''}\n${f.text}\n\`\`\``
             );
-            brainstormDocumentContext = [...pdfParts, ...codeParts].join('\n\n---\n\n');
+            const repoParts = attachedRepositories.map(formatRepoContext);
+            brainstormDocumentContext = [...pdfParts, ...codeParts, ...repoParts].join('\n\n---\n\n');
         }
 
         function rebuildAlgorithmContext() {
-            return algorithmCodeFiles.map(f =>
+            const codeParts = algorithmCodeFiles.map(f =>
                 `[Code File: ${f.filename}]\n\`\`\`${f.extension || ''}\n${f.text}\n\`\`\``
-            ).join('\n\n---\n\n');
+            );
+            const repoParts = algorithmRepositories.map(formatRepoContext);
+            return [...codeParts, ...repoParts].join('\n\n---\n\n');
         }
 
         function renderAttachmentBadges(container, items) {
@@ -896,8 +911,17 @@
             items.forEach(item => {
                 const badge = document.createElement('span');
                 badge.className = 'app-badge';
-                const icon = item.type === 'pdf' ? '📄' : '💻';
-                badge.innerHTML = `${icon} ${item.filename} <span class="app-badge__meta">(${item.char_count} chars)</span>`;
+                let icon = '💻';
+                let label = item.filename;
+                let meta = `(${item.char_count} chars)`;
+                if (item.type === 'pdf') {
+                    icon = '📄';
+                } else if (item.type === 'repo') {
+                    icon = '📁';
+                    label = item.repo_name;
+                    meta = `(${item.file_count} files, ${item.char_count} chars)`;
+                }
+                badge.innerHTML = `${icon} ${label} <span class="app-badge__meta">${meta}</span>`;
                 container.appendChild(badge);
             });
         }
@@ -915,25 +939,55 @@
             return result[key] || [];
         }
 
+        async function uploadRepository(files) {
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                formData.append('files', files[i]);
+                const relPath = files[i].webkitRelativePath || files[i].name;
+                formData.append('paths', relPath);
+            }
+            const response = await fetch('/upload_repository', { method: 'POST', body: formData });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.message || 'Repository upload failed');
+            }
+            return result;
+        }
+
+        function buildRepoAttachment(result) {
+            return {
+                repo_name: result.repo_name,
+                files: result.files || [],
+                char_count: result.total_chars || 0,
+                file_count: result.included_count || (result.files || []).length,
+                type: 'repo'
+            };
+        }
+
         // Attachment upload elements (brainstorm)
         const pdfFileInput = document.getElementById('pdf-file-input');
         const codeFileInput = document.getElementById('code-file-input');
+        const repoFolderInput = document.getElementById('repo-folder-input');
         const attachmentUploadStatus = document.getElementById('attachment-upload-status');
         const clearAttachmentsBtn = document.getElementById('clear-attachments-btn');
         const attachedFilesList = document.getElementById('attached-files-list');
         const filesList = document.getElementById('files-list');
 
         const algorithmCodeFileInput = document.getElementById('algorithm-code-file-input');
+        const algorithmRepoFolderInput = document.getElementById('algorithm-repo-folder-input');
         const algorithmAttachmentStatus = document.getElementById('algorithm-attachment-status');
         const clearAlgorithmAttachmentsBtn = document.getElementById('clear-algorithm-attachments-btn');
         const algorithmAttachedFilesList = document.getElementById('algorithm-attached-files-list');
         const algorithmFilesList = document.getElementById('algorithm-files-list');
 
-        function updateBrainstormAttachmentUI(addedCount) {
-            const allItems = [...attachedDocuments, ...attachedCodeFiles];
+        function updateBrainstormAttachmentUI(addedCount, statusMessage) {
+            const allItems = [...attachedDocuments, ...attachedCodeFiles, ...attachedRepositories];
             const totalChars = allItems.reduce((sum, item) => sum + item.char_count, 0);
 
-            if (addedCount > 0) {
+            if (statusMessage) {
+                attachmentUploadStatus.textContent = statusMessage;
+                setAppStatus(attachmentUploadStatus, 'success');
+            } else if (addedCount > 0) {
                 attachmentUploadStatus.textContent = `✓ Added ${addedCount} new file(s). Total: ${allItems.length} (${totalChars} chars)`;
                 setAppStatus(attachmentUploadStatus, 'success');
             } else if (allItems.length > 0) {
@@ -998,10 +1052,44 @@
             codeFileInput.value = '';
         });
 
+        repoFolderInput.addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (!files.length) return;
+
+            attachmentUploadStatus.textContent = `Uploading repository (${files.length} files scanned)...`;
+            setAppStatus(attachmentUploadStatus, null);
+
+            try {
+                const result = await uploadRepository(files);
+                const repoAttachment = buildRepoAttachment(result);
+                const alreadyAttached = attachedRepositories.some(
+                    existing => existing.repo_name === repoAttachment.repo_name
+                );
+
+                if (!alreadyAttached) {
+                    attachedRepositories.push(repoAttachment);
+                    rebuildBrainstormContext();
+                    updateBrainstormAttachmentUI(
+                        1,
+                        `✓ Loaded repository "${repoAttachment.repo_name}" (${repoAttachment.file_count} files, ${repoAttachment.char_count} chars)`
+                    );
+                } else {
+                    updateBrainstormAttachmentUI(0, `⚠ Repository "${repoAttachment.repo_name}" is already attached.`);
+                    setAppStatus(attachmentUploadStatus, 'warn');
+                }
+            } catch (error) {
+                attachmentUploadStatus.textContent = `Error: ${error.message}`;
+                setAppStatus(attachmentUploadStatus, 'error');
+            }
+
+            repoFolderInput.value = '';
+        });
+
         clearAttachmentsBtn.addEventListener('click', () => {
             brainstormDocumentContext = '';
             attachedDocuments = [];
             attachedCodeFiles = [];
+            attachedRepositories = [];
             filesList.innerHTML = '';
             toggleHidden(attachedFilesList, false);
             toggleHidden(clearAttachmentsBtn, false);
@@ -1026,18 +1114,19 @@
                     }
                 });
 
-                const totalChars = algorithmCodeFiles.reduce((sum, f) => sum + f.char_count, 0);
+                const allItems = [...algorithmCodeFiles, ...algorithmRepositories];
+                const totalChars = allItems.reduce((sum, item) => sum + item.char_count, 0);
                 if (addedCount > 0) {
-                    algorithmAttachmentStatus.textContent = `✓ Added ${addedCount} file(s). Total: ${algorithmCodeFiles.length} (${totalChars} chars)`;
+                    algorithmAttachmentStatus.textContent = `✓ Added ${addedCount} file(s). Total: ${allItems.length} (${totalChars} chars)`;
                     setAppStatus(algorithmAttachmentStatus, 'success');
                 } else {
-                    algorithmAttachmentStatus.textContent = `⚠ Files already attached. Total: ${algorithmCodeFiles.length}`;
+                    algorithmAttachmentStatus.textContent = `⚠ Files already attached. Total: ${allItems.length}`;
                     setAppStatus(algorithmAttachmentStatus, 'warn');
                 }
 
-                renderAttachmentBadges(algorithmFilesList, algorithmCodeFiles);
-                toggleHidden(algorithmAttachedFilesList, algorithmCodeFiles.length > 0);
-                toggleHidden(clearAlgorithmAttachmentsBtn, algorithmCodeFiles.length > 0);
+                renderAttachmentBadges(algorithmFilesList, allItems);
+                toggleHidden(algorithmAttachedFilesList, allItems.length > 0);
+                toggleHidden(clearAlgorithmAttachmentsBtn, allItems.length > 0);
             } catch (error) {
                 algorithmAttachmentStatus.textContent = `Error: ${error.message}`;
                 setAppStatus(algorithmAttachmentStatus, 'error');
@@ -1046,8 +1135,49 @@
             algorithmCodeFileInput.value = '';
         });
 
+        algorithmRepoFolderInput.addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (!files.length) return;
+
+            algorithmAttachmentStatus.textContent = `Uploading repository (${files.length} files scanned)...`;
+            setAppStatus(algorithmAttachmentStatus, null);
+
+            try {
+                const result = await uploadRepository(files);
+                const repoAttachment = buildRepoAttachment(result);
+                const alreadyAttached = algorithmRepositories.some(
+                    existing => existing.repo_name === repoAttachment.repo_name
+                );
+
+                if (!alreadyAttached) {
+                    algorithmRepositories.push(repoAttachment);
+                }
+
+                const allItems = [...algorithmCodeFiles, ...algorithmRepositories];
+                const totalChars = allItems.reduce((sum, item) => sum + item.char_count, 0);
+
+                if (!alreadyAttached) {
+                    algorithmAttachmentStatus.textContent = `✓ Loaded repository "${repoAttachment.repo_name}" (${repoAttachment.file_count} files, ${repoAttachment.char_count} chars). Total: ${allItems.length} attachment(s)`;
+                    setAppStatus(algorithmAttachmentStatus, 'success');
+                } else {
+                    algorithmAttachmentStatus.textContent = `⚠ Repository "${repoAttachment.repo_name}" is already attached.`;
+                    setAppStatus(algorithmAttachmentStatus, 'warn');
+                }
+
+                renderAttachmentBadges(algorithmFilesList, allItems);
+                toggleHidden(algorithmAttachedFilesList, allItems.length > 0);
+                toggleHidden(clearAlgorithmAttachmentsBtn, allItems.length > 0);
+            } catch (error) {
+                algorithmAttachmentStatus.textContent = `Error: ${error.message}`;
+                setAppStatus(algorithmAttachmentStatus, 'error');
+            }
+
+            algorithmRepoFolderInput.value = '';
+        });
+
         clearAlgorithmAttachmentsBtn.addEventListener('click', () => {
             algorithmCodeFiles = [];
+            algorithmRepositories = [];
             algorithmFilesList.innerHTML = '';
             toggleHidden(algorithmAttachedFilesList, false);
             toggleHidden(clearAlgorithmAttachmentsBtn, false);
@@ -1254,6 +1384,26 @@
                     });
                     rebuildBrainstormContext();
                     updateBrainstormAttachmentUI(addedCount);
+                },
+                onAttachRepository: async (files) => {
+                    attachmentUploadStatus.textContent = `Uploading repository (${files.length} files scanned)...`;
+                    setAppStatus(attachmentUploadStatus, null);
+                    const result = await uploadRepository(files);
+                    const repoAttachment = buildRepoAttachment(result);
+                    const alreadyAttached = attachedRepositories.some(
+                        existing => existing.repo_name === repoAttachment.repo_name
+                    );
+                    if (!alreadyAttached) {
+                        attachedRepositories.push(repoAttachment);
+                        rebuildBrainstormContext();
+                        updateBrainstormAttachmentUI(
+                            1,
+                            `✓ Loaded repository "${repoAttachment.repo_name}" (${repoAttachment.file_count} files, ${repoAttachment.char_count} chars)`
+                        );
+                    } else {
+                        updateBrainstormAttachmentUI(0, `⚠ Repository "${repoAttachment.repo_name}" is already attached.`);
+                        setAppStatus(attachmentUploadStatus, 'warn');
+                    }
                 },
                 onClear: () => {
                     brainstormChatHistory = [];

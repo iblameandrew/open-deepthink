@@ -395,6 +395,32 @@ def t16b():
 chk("/upload_code_files loads code and skips unsupported types", t16b)
 
 
+# 16c) /upload_repository with mixed repo files
+def t16c():
+    if not chk_passed:
+        raise RuntimeError("TestClient not initialized")
+    files = [
+        ("files", ("demo-repo/README.md", b"# Demo Repo\n", "text/markdown")),
+        ("files", ("demo-repo/src/main.py", b"print('hello')\n", "text/x-python")),
+        ("files", ("demo-repo/node_modules/pkg/index.js", b"ignored\n", "text/javascript")),
+        ("files", ("demo-repo/photo.jpg", b"\xff\xd8\xff", "image/jpeg")),
+    ]
+    r = client.post("/upload_repository", files=files)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["repo_name"] == "demo-repo"
+    assert body["included_count"] == 2
+    assert body["skipped_count"] >= 2
+    filenames = {item["filename"] for item in body["files"]}
+    assert "demo-repo/README.md" in filenames
+    assert "demo-repo/src/main.py" in filenames
+    assert "README" in body["combined_text"]
+    assert "hello" in body["combined_text"]
+
+
+chk("/upload_repository loads repo files and skips ignored paths", t16c)
+
+
 # 17) /distillation_data when no active graph
 def t17():
     if not chk_passed:

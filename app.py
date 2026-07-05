@@ -4,7 +4,7 @@ import names
 import re
 import time
 import uvicorn
-from fastapi import FastAPI, Request, Body, File, UploadFile
+from fastapi import FastAPI, Request, Body, File, UploadFile, Form
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -3339,6 +3339,130 @@ def _decode_text_file(content: bytes) -> str:
     return content.decode("utf-8", errors="replace")
 
 
+def _file_extension(filename: str) -> str:
+    if filename and "." in filename:
+        return "." + filename.rsplit(".", 1)[-1].lower()
+    return ""
+
+
+def _format_code_block(filename: str, text: str, extension: str = "") -> str:
+    ext = extension or _file_extension(filename).lstrip(".")
+    return f"[Code File: {filename}]\n```{ext}\n{text}\n```"
+
+
+REPO_IGNORE_DIR_NAMES = {
+    ".git",
+    "node_modules",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".mypy_cache",
+    ".tox",
+    ".eggs",
+    ".next",
+    ".nuxt",
+    "target",
+    "coverage",
+    ".idea",
+    ".vscode",
+    "vendor",
+    ".gradle",
+    ".svn",
+    ".hg",
+}
+
+REPO_IGNORE_BASENAMES = {
+    "package-lock.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "poetry.lock",
+    "Pipfile.lock",
+    "Cargo.lock",
+    "go.sum",
+}
+
+REPO_ALLOWED_HIDDEN_FILES = {
+    ".gitignore",
+    ".dockerignore",
+    ".env.example",
+    ".editorconfig",
+}
+
+REPO_PRIORITY_BASENAMES = [
+    "readme.md",
+    "readme",
+    "package.json",
+    "pyproject.toml",
+    "requirements.txt",
+    "setup.py",
+    "cargo.toml",
+    "go.mod",
+    "makefile",
+    "dockerfile",
+    "app.py",
+    "main.py",
+    "index.js",
+    "index.ts",
+    "__init__.py",
+]
+
+
+def _normalize_repo_path(path: str) -> str:
+    return path.replace("\\", "/").lstrip("/")
+
+
+def _repo_path_should_skip(rel_path: str) -> bool:
+    normalized = _normalize_repo_path(rel_path)
+    if not normalized:
+        return True
+
+    parts = normalized.split("/")
+    for part in parts[:-1]:
+        if part.lower() in REPO_IGNORE_DIR_NAMES:
+            return True
+
+    basename = parts[-1]
+    basename_lower = basename.lower()
+    if basename_lower in REPO_IGNORE_BASENAMES:
+        return True
+
+    if basename.startswith("."):
+        if basename_lower not in REPO_ALLOWED_HIDDEN_FILES:
+            return True
+
+    ext = _file_extension(basename)
+    if ext not in CODE_FILE_EXTENSIONS:
+        return True
+
+    return False
+
+
+def _repo_priority_key(rel_path: str) -> tuple:
+    normalized = _normalize_repo_path(rel_path)
+    parts = normalized.split("/")
+    basename = parts[-1].lower()
+    depth = len(parts)
+
+    try:
+        priority = REPO_PRIORITY_BASENAMES.index(basename)
+    except ValueError:
+        priority = len(REPO_PRIORITY_BASENAMES)
+
+    return (priority, depth, normalized.lower())
+
+
+def _extract_repo_name(paths: List[str]) -> str:
+    for path in paths:
+        normalized = _normalize_repo_path(path)
+        if normalized:
+            return normalized.split("/")[0]
+    return "repository"
+
+
 @app.post("/upload_code_files")
 async def upload_code_files(files: List[UploadFile] = File(...)):
     """
@@ -3351,9 +3475,7 @@ async def upload_code_files(files: List[UploadFile] = File(...)):
 
     try:
         for file in files:
-            ext = ""
-            if file.filename and "." in file.filename:
-                ext = "." + file.filename.rsplit(".", 1)[-1].lower()
+            ext = _file_extension(file.filename or "")
 
             if ext not in CODE_FILE_EXTENSIONS:
                 await log_stream.put(
@@ -3392,10 +3514,7 @@ async def upload_code_files(files: List[UploadFile] = File(...)):
             )
 
         combined_text = "\n\n---\n\n".join(
-            [
-                f"[Code File: {doc['filename']}]\n```{doc.get('extension', '')}\n{doc['text']}\n```"
-                for doc in extracted_files
-            ]
+            [_format_code_block(doc["filename"], doc["text"], doc.get("extension", "")) for doc in extracted_files]
         )
 
         return JSONResponse(
@@ -3409,6 +3528,130 @@ async def upload_code_files(files: List[UploadFile] = File(...)):
 
     except Exception as e:
         error_message = f"Failed to process code files: {e}"
+        await log_stream.put(error_message)
+        return JSONResponse(
+            content={"message": error_message, "traceback": traceback.format_exc()},
+            status_code=500,
+        )
+
+
+@app.post("/upload_repository")
+async def upload_repository(
+    files: List[UploadFile] = File(...),
+    paths: List[str] = Form(default=[]),
+):
+    """
+    Uploads an entire repository folder and returns prioritized source files as context.
+    Skips common vendor/build/cache directories and caps total context at 50k chars.
+    """
+    MAX_TOTAL_CHARS = 50000
+    MAX_FILES = 500
+
+    try:
+        if not files:
+            return JSONResponse(
+                content={"message": "No files received from repository upload."},
+                status_code=400,
+            )
+
+        resolved_paths: List[str] = []
+        for index, file in enumerate(files):
+            if index < len(paths) and paths[index]:
+                resolved_paths.append(_normalize_repo_path(paths[index]))
+            else:
+                resolved_paths.append(_normalize_repo_path(file.filename or f"file_{index}"))
+
+        repo_name = _extract_repo_name(resolved_paths)
+
+        candidates = []
+        skipped_count = 0
+        for file, rel_path in zip(files, resolved_paths):
+            if _repo_path_should_skip(rel_path):
+                skipped_count += 1
+                continue
+
+            content = await file.read()
+            file_text = _decode_text_file(content)
+            ext = _file_extension(rel_path)
+
+            candidates.append(
+                {
+                    "filename": rel_path,
+                    "text": file_text,
+                    "char_count": len(file_text),
+                    "extension": ext.lstrip("."),
+                    "repo_name": repo_name,
+                }
+            )
+
+        candidates.sort(key=lambda item: _repo_priority_key(item["filename"]))
+
+        extracted_files = []
+        total_chars = 0
+        truncated_count = 0
+
+        for candidate in candidates:
+            if len(extracted_files) >= MAX_FILES:
+                skipped_count += 1
+                continue
+
+            remaining_chars = MAX_TOTAL_CHARS - total_chars
+            if remaining_chars <= 0:
+                skipped_count += 1
+                continue
+
+            file_text = candidate["text"]
+            if len(file_text) > remaining_chars:
+                file_text = file_text[:remaining_chars]
+                truncated_count += 1
+                await log_stream.put(
+                    f"WARNING: Truncated repository file {candidate['filename']} to fit character limit."
+                )
+
+            total_chars += len(file_text)
+            extracted_files.append(
+                {
+                    "filename": candidate["filename"],
+                    "text": file_text,
+                    "char_count": len(file_text),
+                    "extension": candidate["extension"],
+                    "repo_name": repo_name,
+                }
+            )
+
+            await log_stream.put(
+                f"SUCCESS: Loaded {len(file_text)} characters from repository file {candidate['filename']}"
+            )
+
+        combined_text = "\n\n---\n\n".join(
+            [
+                f"[Repository: {doc['repo_name']}/{doc['filename']}]\n```{doc.get('extension', '')}\n{doc['text']}\n```"
+                for doc in extracted_files
+            ]
+        )
+
+        message = (
+            f"Successfully loaded {len(extracted_files)} file(s) from repository '{repo_name}'."
+        )
+        if skipped_count:
+            message += f" Skipped {skipped_count} file(s) (ignored paths, unsupported types, or limits)."
+        if truncated_count:
+            message += f" Truncated {truncated_count} file(s) to fit the character budget."
+
+        return JSONResponse(
+            content={
+                "message": message,
+                "repo_name": repo_name,
+                "files": extracted_files,
+                "combined_text": combined_text,
+                "total_chars": total_chars,
+                "included_count": len(extracted_files),
+                "skipped_count": skipped_count,
+            }
+        )
+
+    except Exception as e:
+        error_message = f"Failed to process repository: {e}"
         await log_stream.put(error_message)
         return JSONResponse(
             content={"message": error_message, "traceback": traceback.format_exc()},

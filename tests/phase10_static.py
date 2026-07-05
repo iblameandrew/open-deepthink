@@ -359,6 +359,21 @@ def t18b():
 chk("/upload_code_files handles unsupported types gracefully", t18b)
 
 
+# 18c) Verify error handling in upload_repository
+def t18c():
+    import importlib
+
+    mod = importlib.import_module("app")
+    from fastapi.testclient import TestClient
+
+    client = TestClient(mod.app)
+    r = client.post("/upload_repository", data={})
+    assert r.status_code in (400, 422)
+
+
+chk("/upload_repository rejects empty uploads", t18c)
+
+
 # 19) Test that the app's GraphState is the one used at runtime
 def t19():
     # The agent_node is created with the app's GraphState

@@ -88,6 +88,15 @@ def t6b():
 chk("POST /upload_code_files exists", t6b)
 
 
+# Upload repository
+def t6c():
+    routes = [r for r in app.routes if getattr(r, "path", "") == "/upload_repository"]
+    assert routes
+
+
+chk("POST /upload_repository exists", t6c)
+
+
 # Chat
 def t7():
     routes = [r for r in app.routes if getattr(r, "path", "") == "/chat"]
@@ -207,6 +216,7 @@ def t18():
         "/import_qnn",
         "/upload_documents",
         "/upload_code_files",
+        "/upload_repository",
         "/chat",
         "/diagnostic_chat",
         "/harvest",
@@ -222,7 +232,7 @@ def t18():
     assert not missing, f"Missing endpoints: {missing}"
 
 
-chk("All 16 expected endpoints present", t18)
+chk("All 17 expected endpoints present", t18)
 
 for name, status, err in results:
     line = f"  [{status}] {name}"

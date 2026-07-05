@@ -43,6 +43,7 @@ const NodeChat = (() => {
     const icons = {
         send: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,
         attach: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>`,
+        folder: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>`,
         trash: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 01-2 2H9a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>`,
         refresh: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>`,
         brain: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 00-7 7c0 3 2 5.5 4 7.5S12 22 12 22s3-3.5 5-5.5 4-4.5 4-7.5a7 7 0 00-7-7z"/></svg>`,
@@ -149,7 +150,9 @@ const NodeChat = (() => {
             onSend: options.onSend || null,          // async (message, chatInstance) => {}
             onClear: options.onClear || null,        // () => {}
             onAttachCode: options.onAttachCode || null,  // async (files, chatInstance) => {}
+            onAttachRepository: options.onAttachRepository || null,  // async (files, chatInstance) => {}
             enableCodeAttach: options.enableCodeAttach !== false,
+            enableRepoAttach: options.enableRepoAttach !== false,
             ...options
         };
 
@@ -209,8 +212,16 @@ const NodeChat = (() => {
             multiple: 'true',
             style: { display: 'none' }
         });
+        const repoFolderInput = h('input', {
+            type: 'file',
+            webkitdirectory: 'true',
+            directory: 'true',
+            multiple: 'true',
+            style: { display: 'none' }
+        });
 
         let attachBtn = null;
+        let repoAttachBtn = null;
         const inputChildren = [textarea];
         if (opts.enableCodeAttach) {
             attachBtn = h('button', {
@@ -222,6 +233,16 @@ const NodeChat = (() => {
             });
             inputChildren.unshift(attachBtn);
         }
+        if (opts.enableRepoAttach) {
+            repoAttachBtn = h('button', {
+                className: 'node-chat__attach-btn',
+                innerHTML: icons.folder,
+                title: 'Attach repository folder',
+                type: 'button',
+                onClick: () => repoFolderInput.click()
+            });
+            inputChildren.unshift(repoAttachBtn);
+        }
         inputChildren.push(sendBtn);
 
         codeFileInput.addEventListener('change', async (e) => {
@@ -232,12 +253,33 @@ const NodeChat = (() => {
             }
             try {
                 if (attachBtn) attachBtn.disabled = true;
+                if (repoAttachBtn) repoAttachBtn.disabled = true;
                 await opts.onAttachCode(files, chatAPI);
             } catch (err) {
                 console.error('Code attach failed:', err);
             } finally {
                 if (attachBtn) attachBtn.disabled = false;
+                if (repoAttachBtn) repoAttachBtn.disabled = false;
                 codeFileInput.value = '';
+            }
+        });
+
+        repoFolderInput.addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (!files.length || !opts.onAttachRepository) {
+                repoFolderInput.value = '';
+                return;
+            }
+            try {
+                if (attachBtn) attachBtn.disabled = true;
+                if (repoAttachBtn) repoAttachBtn.disabled = true;
+                await opts.onAttachRepository(files, chatAPI);
+            } catch (err) {
+                console.error('Repository attach failed:', err);
+            } finally {
+                if (attachBtn) attachBtn.disabled = false;
+                if (repoAttachBtn) repoAttachBtn.disabled = false;
+                repoFolderInput.value = '';
             }
         });
 
@@ -245,6 +287,9 @@ const NodeChat = (() => {
         const inputArea = h('div', { className: 'node-chat__input-area' }, inputRow);
         if (opts.enableCodeAttach) {
             inputArea.appendChild(codeFileInput);
+        }
+        if (opts.enableRepoAttach) {
+            inputArea.appendChild(repoFolderInput);
         }
 
         root.appendChild(header);
