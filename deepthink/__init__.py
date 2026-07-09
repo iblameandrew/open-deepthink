@@ -1,6 +1,6 @@
-__version__ = "0.1.5"
-__release_name__ = "repository-context"
-__release_tag__ = "0.1.5"
+__version__ = "0.1.6"
+__release_name__ = "portable-qnn-skill"
+__release_tag__ = "0.1.6"
 
 # deepthink package initialization
 from .utils import clean_and_parse_json, execute_code_in_sandbox

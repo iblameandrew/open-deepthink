@@ -169,27 +169,34 @@ This is why the distillation dataset + full topology archives are treated as fir
 
 ---
 
-## Future Directions: QNNs in Practical Coding Agents
+## Portable `/qnn` Skill for Agentic Coders
 
-As a programmer, one of the most exciting follow-up projects I can imagine is taking the core ideas from open-deepthink and embedding them into a real, tool-using coding agent.
-
-Here's the kind of workflow I'm thinking about:
-
-You're deep in a codebase, "vibe coding" some rough, high-level instructions because you don't have perfect nuance on the solution yet. You hit a particularly sticky bug or architectural problem — the kind where normal agent assistance (even strong models) keeps circling around variations of the same local approach.
-
-Instead of grinding it out with more prompting, you type something like:
+When a coding agent is **stuck** (deadlock, race, perf cliff, circular local fixes) or a **feature needs wider depth** (richer metrics, APIs, UX options), drop in the portable QNN skill instead of grinding more one-shot prompts.
 
 ```
 /qnn explore this deadlock / performance regression
+/qnn richer metrics for the training dashboard
 ```
 
-The system spans a large structured network — for example a 10×10 QNN with 100 agents — and runs multiple epochs of thinking. These agents don't just brainstorm in a flat chat. They perform layered forward passes, decompose the problem across the topology, explore genuinely different strategies in parallel and in depth, evolve their own specializations through Mirror Descent, and deliberately reframe the problem to help escape the current mental model.
+The skill runs a structured Qualitative Neural Network procedure inside the host agent: guiding concepts → layered personas → multi-epoch forward passes → Mirror Descent persona evolution → harder reframes → a **Solution-Space Report**. The goal is not to ship the patch immediately — it is a map of divergent strategies with falsifiers and smallest first probes. You pick a direction and resume the grounded edit → run → debug loop.
 
-The goal isn't for the QNN to immediately write the fix. The output is a rich map of divergent approaches, with reasoning about why certain paths might break the current impasse. You review the explored solution space, pick the directions that feel promising (or that surface angles you never would have considered), and feed the best ones back into the tight, grounded edit-run-debug loop of your normal coding agent.
+| Artifact | Location |
+|----------|----------|
+| Skill body | [`skills/qnn/SKILL.md`](./skills/qnn/SKILL.md) |
+| Install notes | [`skills/qnn/INSTALL.md`](./skills/qnn/INSTALL.md) |
+| Skills index | [`skills/README.md`](./skills/README.md) |
+| Release zip | `qnn-skill-<version>.zip` on [GitHub Releases](https://github.com/iblameandrew/open-deepthink/releases) |
 
-This hybrid model — using large-scale evolutionary QNN exploration as a "strategic depth tool" precisely when you're stuck and lacking nuance, while keeping a fast, tool-heavy agent for actual implementation and verification — feels like a natural and powerful evolution of the ideas here.
+**Install (Grok user skills):**
 
-I plan to explore building something like this in a dedicated coding agent project in the future.
+```bash
+mkdir -p ~/.grok/skills/qnn
+cp skills/qnn/SKILL.md ~/.grok/skills/qnn/SKILL.md
+```
+
+Or download the release asset and unzip into `~/.grok/skills/`. Works with any agent that can follow a skill file — tool names adapt to the host.
+
+The full open-deepthink server remains the place for long evolutionary runs, export/import of trained QNNs, and distillation datasets. The portable skill is the lightweight escape hatch for day-to-day agentic coding.
 
 ---
 
@@ -219,4 +226,4 @@ Not more agents. Better *becoming* agents.
 
 ---
 
-*Version 0.1.5 — See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the full history.*
+*Version 0.1.6 — See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the full history.*

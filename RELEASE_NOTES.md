@@ -1,3 +1,41 @@
+# Release Notes — `0.1.6`
+
+**Tag:** `0.1.6`
+**Date:** 2026-07-09
+**Tagline:** "Portable `/qnn` skill — import anytime an agentic coder is stuck or a feature needs wider depth"
+
+## ✨ Features
+
+### Portable QNN skill for agentic coders
+
+* **New `skills/qnn/` package** — Agent-agnostic `SKILL.md` that runs a full Qualitative Neural Network brainstorm *inside* a coding agent (Grok, Claude Code, Cursor, Codex, custom harnesses).
+* **Two modes**
+  * **unstick** — sticky bugs (deadlock, race, perf cliff, circular local fixes)
+  * **enrich** — thin features/artifacts that need richer options (metrics, APIs, UX, research depth)
+* **Procedure** — Impasse/enrich brief → topology (auto or manual) → guiding concepts → L×W personas → layered forward passes → epoch maps → Mirror Descent → problem reframing → **Solution-Space Report** with falsifiers and first probes.
+* **Handoff contract** — The skill maps the solution space; it does **not** ship production patches. Pick a strategy, then resume edit → run → debug.
+* **Import paths** — Copy into `~/.grok/skills/qnn/`, project `.grok/skills/`, or install from the release zip asset `qnn-skill-0.1.6.zip`.
+* **Packaging** — `skills/package_skill.py` rebuilds the release zip; `skills/README.md` documents host-agnostic install.
+
+### Docs
+
+* README: Future Directions replaced with **shipped** portable `/qnn` skill section and install instructions.
+* `skills/qnn/INSTALL.md` — one-page install for the skill alone.
+
+### Files
+
+* `skills/qnn/SKILL.md` — portable skill body
+* `skills/qnn/INSTALL.md` — install guide
+* `skills/README.md` — skills index + import options
+* `skills/package_skill.py` — zip builder for releases
+* `deepthink/__init__.py` — version bump to `0.1.6`
+
+### Release asset
+
+* `qnn-skill-0.1.6.zip` — unzip into `~/.grok/skills/` (or equivalent) for immediate `/qnn` availability.
+
+---
+
 # Release Notes — `0.1.5`
 
 **Tag:** `0.1.5`
