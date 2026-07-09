@@ -23,14 +23,15 @@
             <label for="llm-provider">🤖 LLM Provider</label>
             <select id="llm-provider">
                 <option value="openrouter">OpenRouter</option>
+                <option value="requesty">Requesty</option>
                 <option value="llamacpp">LlamaCpp Server</option>
             </select>
 
             <div id="openrouter-config" class="provider-config">
                 <label for="openrouter-api-key">🔗 API Key</label>
-                <input type="password" id="openrouter-api-key" placeholder="OpenRouter API key...">
+                <input type="password" id="openrouter-api-key" placeholder="OpenRouter / Requesty API key...">
                 <label for="openrouter-model">📦 Model</label>
-                <input type="text" id="openrouter-model" value="stepfun/step-3.5-flash:free" placeholder="model-name">
+                <input type="text" id="openrouter-model" value="stepfun/step-3.5-flash:free" placeholder="provider/model">
             </div>
 
             <div id="llamacpp-config" class="provider-config">
@@ -707,7 +708,7 @@
                 const agentMdls = document.getElementById('agent-models') ? document.getElementById('agent-models').value.trim() : '';
 
                 let api_key = '';
-                if (provider === 'openrouter') api_key = openrouterKey;
+                if (provider === 'openrouter' || provider === 'requesty') api_key = openrouterKey;
 
                 const startBtn = document.getElementById('start-distillation-btn');
                 const stopBtn = document.getElementById('stop-distillation-btn');
@@ -1219,11 +1220,11 @@
         if (savedAgentModels) document.getElementById('agent-models').value = savedAgentModels;
 
 
-        // Show/hide config based on provider (only openrouter / llamacpp)
+        // Show/hide config based on provider (openrouter / requesty share the cloud config, or llamacpp)
         const updateProviderConfig = () => {
             openrouterConfig.classList.remove('is-visible');
             llamacppConfig.classList.remove('is-visible');
-            if (llmProviderSelect.value === 'openrouter') {
+            if (llmProviderSelect.value === 'openrouter' || llmProviderSelect.value === 'requesty') {
                 openrouterConfig.classList.add('is-visible');
             } else if (llmProviderSelect.value === 'llamacpp') {
                 llamacppConfig.classList.add('is-visible');
@@ -1311,8 +1312,8 @@
                     const llamacppModel = localStorage.getItem('llamacpp_model') || 'llama-3.2-1b-instruct';
 
 
-                    if (provider === 'openrouter' && !openrouterApiKey) {
-                        alert('Please save your OpenRouter API key in the settings panel first.');
+                    if ((provider === 'openrouter' || provider === 'requesty') && !openrouterApiKey) {
+                        alert('Please save your OpenRouter / Requesty API key in the settings panel first.');
                         chat.finishStreaming();
                         return;
                     }
@@ -1728,7 +1729,7 @@
             const agentMdls = document.getElementById('agent-models') ? document.getElementById('agent-models').value.trim() : '';
 
             params.provider = provider;
-            if (provider === 'openrouter') params.api_key = openrouterKey;
+            if (provider === 'openrouter' || provider === 'requesty') params.api_key = openrouterKey;
 
             params.openrouter_model = openrouterMdl;
             params.llamacpp_url = llamacppServerUrl;
