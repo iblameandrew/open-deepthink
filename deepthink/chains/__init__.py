@@ -40,6 +40,8 @@ from .brainstorm_chains import (
     get_brainstorming_spanner_chain,
     get_problem_summarizer_chain,
     get_brainstorming_polisher_chain,
+    get_brainstorming_reframer_chain,
+    get_brainstorming_epoch_map_chain,
 )
 
 from .distillation_chains import (
@@ -83,6 +85,8 @@ __all__ = [
     "get_brainstorming_spanner_chain",
     "get_problem_summarizer_chain",
     "get_brainstorming_polisher_chain",
+    "get_brainstorming_reframer_chain",
+    "get_brainstorming_epoch_map_chain",
     # Distillation chains
     "get_task_master_chain",
     "get_seed_creator_chain",

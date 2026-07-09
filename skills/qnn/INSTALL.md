@@ -2,6 +2,10 @@
 
 Portable Qualitative Neural Network procedure for agentic coders.
 
+Personas are **not** a flat expert list. They are spanned the same way as
+open-deepthink Algorithm Mode: seed **verbs + nouns** from the problem space
+→ sample word-vectors per column → input-span careers/attributes/skills.
+
 Use it when:
 
 - You are **stuck** (deadlock, race, perf cliff, circular local fixes), or

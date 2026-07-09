@@ -10,7 +10,7 @@ body are examples — adapt them to your runtime.
 
 | Skill | Path | When to use |
 |-------|------|-------------|
-| **qnn** | [`qnn/SKILL.md`](./qnn/SKILL.md) | Sticky debug loops **or** features that need wider depth / richer options |
+| **qnn** | [`qnn/SKILL.md`](./qnn/SKILL.md) | Sticky debug loops **or** features that need wider depth — personas spanned from problem-space **verbs + nouns** (Algorithm Mode method) |
 
 ## Quick import
 

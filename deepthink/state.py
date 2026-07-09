@@ -35,7 +35,9 @@ class GraphState(TypedDict):
     brainstorm_problem_summary: str
 
 
-# Brainstorming mode expert definitions
+# Legacy static labels kept for import/tests only.
+# Live brainstorm expert panels are dynamically spanned QNN personas
+# (seeds → L×W nodes with layer 0 diverge / deeper converge) — not this list.
 BRAINSTORM_EXPERTS = [
     {"name": "Dr. Synthia Logic", "specialty": "Logical Analysis", "emoji": "🧠"},
     {"name": "Marcus Visionary", "specialty": "Creative Ideation", "emoji": "💡"},

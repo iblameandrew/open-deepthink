@@ -1,6 +1,15 @@
 """
 Brainstorming mode chain factories.
-Chains for complexity estimation, expert reflection, and QNN brainstorming.
+
+The expert panel is a full Qualitative Neural Network (QNN), not a flat
+panel of static experts. Chains implement the QNN algorithm step-by-step:
+
+  0. Brief (summarizer / complexity context)
+  1. Topology (complexity estimator → L × W × E)
+  2. Guiding concepts (seed chain)
+  3. Personas (spanner chain, layer 0 diverge / deeper converge)
+  4. Epoch loop: layered forward → epoch map → Mirror Descent → reframe
+  5. Solution-Space Report (final synthesis + polisher)
 """
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -8,15 +17,13 @@ from langchain_core.output_parsers import StrOutputParser
 
 
 def get_complexity_estimator_chain(llm):
-    """Estimates QNN size for AUTO mode (small panels recommended by default for cost/speed).
-    Users can override with Manual/Massive mode in the UI to spawn huge topologies at their request.
+    """QNN Step 1 (Auto): estimate topology L × W × E from problem complexity.
+
+    Manual/Massive UI mode bypasses this and uses user-specified dimensions.
     """
-    # REFACTORED: Now focuses on Topological Parameters, not just returning a static list of experts.
-    # Also considers prior conversation and document context for continuity.
     prompt = ChatPromptTemplate.from_template("""
-Analyze the complexity of the following user input/question for a brainstorming session (AUTO mode).
-Based on the complexity and nature of the problem, recommend a *small* QNN topology (layers, epochs, and width) suitable for balanced, affordable runs.
-This estimator is ONLY used when the user selects "Auto"; they can also choose Manual/Massive to request any size they want (e.g. 50x50).
+You size a Qualitative Neural Network (QNN) expert panel for AUTO mode.
+Recommend a *small* affordable topology. Users can override with Manual/Massive for huge nets.
 
 User Input:
 ---
@@ -33,28 +40,29 @@ Document Context (if any):
 {document_context}
 ---
 
-Consider these factors for complexity:
-1. Number of distinct concepts or domains involved
-2. Depth of analysis required
-3. Potential for conflicting perspectives
-4. Technical vs conceptual nature
-5. Continuation from prior conversation context
-6. Complexity of attached documents
+Score complexity 1–10 using: distinct domains, depth needed, conflicting perspectives,
+technical vs conceptual load, prior conversation continuity, document complexity.
 
-Respond with a JSON object:
+Map score to topology (prefer small for AUTO):
+- score 1–3 → layers 2, width 2, epochs 1
+- score 4–6 → layers 3, width 3, epochs 2
+- score 7–8 → layers 3, width 4, epochs 2
+- score 9–10 → layers 4, width 5, epochs 3
+
+Respond with JSON only:
 {{
     "complexity_score": <1-10 integer>,
-    "recommended_layers": <2-5 integer, depth of thought - keep small for auto>,
-    "recommended_epochs": <1-3 integer, iterative refinement>,
-    "recommended_width": <2-5 integer, number of parallel perspectives per layer - keep small for auto>,
-    "reasoning": "<brief explanation>"
+    "recommended_layers": <2-5 integer>,
+    "recommended_epochs": <1-3 integer>,
+    "recommended_width": <2-5 integer>,
+    "reasoning": "<brief explanation including unstick vs enrich if relevant>"
 }}
 """)
     return prompt | llm | StrOutputParser()
 
 
 def get_expert_reflection_chain(llm, expert_name, expert_specialty, expert_emoji):
-    """Creates a reflection chain for a specific expert persona."""
+    """Legacy single-expert reflection (tests / fallback). Prefer full QNN spanner+agent path."""
     prompt = ChatPromptTemplate.from_template(f"""
 You are {expert_name} ({expert_emoji}), an expert in {expert_specialty}.
 
@@ -79,14 +87,7 @@ Your response should be 2-4 sentences of substantive analysis.
 
 
 def get_brainstorming_opinion_synthesizer_chain(llm):
-    """Synthesizes all expert opinions into a final coherent response.
-
-    NOTE: previously this was named `get_opinion_synthesizer_chain`, which collided
-    with the identically-named factory in `synthesis_chains.py`. The shared name
-    caused the import order in `deepthink/chains/__init__.py` to silently override
-    one definition with the other. It is now exported under a unique name and
-    re-imported through `__init__.py` with that explicit alias.
-    """
+    """Legacy flat-panel synthesizer. Prefer get_brainstorming_synthesis_chain (QNN)."""
     prompt = ChatPromptTemplate.from_template("""
 You are a master synthesizer. You have received opinions from multiple experts on a user's question.
 Your task is to synthesize these diverse perspectives into a coherent, actionable response.
@@ -116,74 +117,95 @@ Synthesized Response:
 
 
 def get_brainstorming_seed_chain(llm):
-    """
-    Generates a diverse set of Guiding Concepts (Seeds) to span the problem space.
-    Analogous to verb generation in Algorithm Mode but for high-level concepts.
+    """QNN Step 2: seed verbs + nouns from the problem space (same spirit as algorithm mode).
+
+    Algorithm mode uses get_seed_generation_chain for abstract verbs, then samples
+    per-agent guiding_words for the input spanner. Brainstorm uses the same idea:
+    a pool of linguistically loaded verbs AND nouns — some tight to the problem,
+    some from far semantic fields — so personas span the problem space rather than
+    a flat list of expert labels.
     """
     prompt = ChatPromptTemplate.from_template("""
-You are a Concept Spanner.
-Your goal is to generate a diverse set of "Guiding Concepts" or "Lenses" that can be used to analyze a specific problem from multiple angles.
+You are the QNN Seed Generator (same role as Algorithm Mode seed generation).
 
-Problem/Topic:
+Given the problem, generate exactly {word_count} unique seed words that will become
+guiding_words for spanning agent personas.
+
+Problem:
 ---
 {problem}
 ---
 
-Generate exactly {num_concepts} distinct, single-word or short-phrase "Guiding Concepts".
-These concepts should:
-1. Span the entire conceptual space of the problem (e.g. Technical, Ethical, Practical, Theoretical).
-2. Be distinct from each other.
-3. Serve as seeds for generating specific expert personas.
+Requirements (match original algorithm spanning):
+1. About half should be **verbs** — abstract, linguistically loaded, related to the problem.
+2. About half should be **nouns** — entities, forces, structures, or domains in/near the problem space.
+3. Include words tightly related to the problem AND words from **far semantic fields** of knowledge
+   (so the network can invent unexpected but useful specializations).
+4. Single tokens only (no phrases). Unique. No filler (the, and, solve, problem).
 
-Output ONLY the concepts, separated by spaces.
-Example Output: Efficiency Ethics Scalability User-Experience Security
+Output ONLY a single space-separated string of words.
+Example: distill reconverge entangle ownership latch invariant horizon entropy braid crystallize
 """)
     return prompt | llm | StrOutputParser()
 
 
 def get_brainstorming_spanner_chain(llm):
-    """
-    Dynamically generates a unique Expert Persona (Node) for a specific position in the QNN.
-    Ensures the persona is tailored to the guiding concept and the specific layer's role.
-    Now includes document context for domain-aware persona generation.
+    """QNN Step 3: span one persona from guiding_words (verbs/nouns), like input_spanner.
+
+    Mirrors algorithm-mode get_input_spanner_chain: career + attributes shaped by
+    guiding_words, skills as extensions — plus layer diverge/converge role for brainstorm.
     """
     prompt = ChatPromptTemplate.from_template("""
-You are a QNN Node Generator.
-Your task is to create a highly specific Expert Persona for a brainstorming session.
+You are a QNN Node Generator / Agent Architect (same spanning method as Algorithm Mode input spanner).
 
-Topic: {problem}
-Guiding Concept (Seed): {guiding_concept}
+You design one specialized agent by blending **guiding_words** (verbs and nouns sampled from
+the problem space) into a realistic professional persona. Do NOT invent a generic "Senior Engineer".
+
+Topic / sub-problem:
+---
+{problem}
+---
+
+Guiding words (seed verbs + nouns for THIS column — treat as the agent's word-vector):
+---
+{guiding_words}
+---
+
 QNN Position: Layer {layer_index}, Node {node_index}
 
-Document Context (Reference Material):
+Document Context (optional domain grounding):
 ---
 {document_context}
 ---
 
-Role based on Layer:
-- Layer 0: Divergent Thinker (Explores the 'What if' and breadth).
-- Layer 1+: Convergent/Critical Thinker (Critiques, Refines, or Synthesizes inputs from previous layers).
+Layer roles (mandatory):
+- Layer 0: DIVERGENT — breadth, "what if", unusual strategies from your word-vector.
+- Layer 1+: CONVERGENT / CRITICAL — critique, refine, stress-test upstream using your word-vector.
 
-Create a persona that embodies the "{guiding_concept}" perspective applied to the Topic.
-If document context is provided, ensure the persona has relevant expertise to analyze it.
+Spanning procedure (same as original algorithm):
+1. **Career** — realistic professional role specialized for the problem, colored by guiding_words.
+2. **Attributes** — derive a personality/cognition profile whose descriptors are clearly
+   influenced by the guiding_words (verbs → action style; nouns → domain objects/forces).
+3. **Skills** — 4–6 methodologies that are logical extensions of the Career + guiding_words.
+4. The agent must answer only through its specializations; map strategies with mechanisms
+   and falsifiers; do NOT ship production patches.
 
-Respond with a JSON object:
+Respond with JSON only:
 {{
-    "name": "<Creative Name>",
-    "specialty": "<Specific Niche Specialty related to {guiding_concept}>",
+    "name": "<Creative human name>",
+    "specialty": "<Niche career/specialty derived from guiding_words + problem>",
     "emoji": "<Emoji>",
-    "system_prompt": "<A concise (2-3 sentences) instruction sets for this agent. Defining who they are, their specialty, and their specific goal for this layer (Diverge vs Converge)>"
+    "guiding_words": "{guiding_words}",
+    "attributes": ["<12 short attribute phrases shaped by the guiding words>"],
+    "skills": ["<4-6 practical skills/methodologies>"],
+    "system_prompt": "<Second-person system prompt: who they are, career, how guiding_words shape their cognition, layer goal (diverge vs converge), mandate to produce strategy angles with falsifiers not production patches. 4-8 sentences.>"
 }}
 """)
     return prompt | llm | StrOutputParser()
 
 
 def get_brainstorming_agent_chain(llm):
-    """
-    Standard agent chain for brainstorming QNN node.
-    Reflects on the input concept from the persona's perspective.
-    Now includes prior conversation and document context for continuity.
-    """
+    """Optional standalone QNN agent reflection chain (prompt-compatible tests)."""
     prompt = ChatPromptTemplate.from_template("""
 <System>
 {system_prompt}
@@ -204,14 +226,13 @@ Document Context (Reference Material):
 {document_context}
 ---
 
-Your Task:
-Reflect on the input from your specific persona and expertise defined in the system prompt.
-Consider the prior conversation context to maintain continuity with previous discussions.
-Reference the document context when relevant to ground your analysis in the provided materials.
-Provide a unique insight, a critical question, or a creative expansion.
-Do NOT try to solve it algorithmically.
-Explore the "why" and "what if".
-Your output should be a single paragraph of deep reflection.
+Your Task (QNN node reflection):
+Reflect on the input from your persona only.
+- Do NOT write production patches or full file diffs.
+- Do NOT converge prematurely on "the" fix.
+- Explore "why" and "what if".
+Provide a unique strategic angle, why it might break the impasse (or enrich the artifact),
+what evidence would confirm or kill it, and risks.
 
 Your Reflection:
 """)
@@ -219,11 +240,9 @@ Your Reflection:
 
 
 def get_brainstorming_mirror_descent_chain(llm, learning_rate):
-    """
-    Evolves the agent's persona (system prompt) to encourage divergent thinking.
-    """
+    """QNN Step 4C: evolve personas between epochs (qualitative Mirror Descent)."""
     prompt = ChatPromptTemplate.from_template(f"""
-You are a Persona Evolver. Your task is to slightly modify an agent's system prompt to encourage more detailed, divergent, or specific thinking based on their last output.
+You are a Persona Evolver for a QNN. Rewrite the agent's system prompt based on last output.
 
 Original System Prompt:
 ---
@@ -235,25 +254,103 @@ Last Output from Agent:
 {{last_output}}
 ---
 
-Critique instructions:
-- If the last output was too generic, make the prompt more specific to the persona's niche.
-- If the last output was too algorithmic, modify the prompt to encourage philosophical or creative reasoning.
-- If the output was good, reinforce the traits that led to it.
-- The 'learning_rate' ({learning_rate}) determines the magnitude of change (0.0 = no change, 2.0 = radical reinvention).
+Mutation rules:
+- Too generic → narrow specialty; name concrete subsystems from the problem if present.
+- Too patch-shaped / algorithmic → push toward mechanisms, invariants, failure modes, falsifiers.
+- Strong unique insight → reinforce that niche; demand sharper falsifiers next epoch.
+- Contradicted or thin → require explicit dissent with evidence or reconciling upstream views.
+- Learning rate ({learning_rate}): 0.0 = almost no change, 0.5 = moderate, 2.0 = radical reinvention.
+- Keep layer role (diverge vs converge). Keep "no production patches" discipline.
 
-Output ONLY the new system prompt. Do not add any explanation.
+Output ONLY the new system prompt. No explanation.
+""")
+    return prompt | llm | StrOutputParser()
+
+
+def get_brainstorming_reframer_chain(llm):
+    """QNN Step 4D: harder thinking challenge for next epoch (ground truth unchanged)."""
+    prompt = ChatPromptTemplate.from_template("""
+You are the QNN Problem Re-framer for brainstorming mode.
+
+The expert network produced an intermediate solution-space map. Your job is to formulate a
+*harder, more advanced thinking challenge* for the next epoch — NOT a different product goal.
+
+Rules:
+1. Preserve the user's original success criteria and product intent (ground truth).
+2. Remove a simplifying assumption the network may have leaned on.
+3. Force consideration of scale, concurrency, partial failure, migration, evaluation, or adversarial use as appropriate.
+4. The reframe is a *thinking tool* for the next forward pass only.
+5. Do not ask for a production patch; ask for deeper strategy exploration.
+
+Original Request (ground truth — do not replace):
+---
+{original_request}
+---
+
+Current Thinking Challenge:
+---
+{current_problem}
+---
+
+Latest Epoch Map / Synthesis (may be partial):
+---
+{final_solution}
+---
+
+Prior Conversation (optional):
+---
+{prior_conversation}
+---
+
+Respond with JSON only:
+{{
+    "new_problem": "<harder thinking challenge for next epoch, still grounded in original request>"
+}}
+""")
+    return prompt | llm | StrOutputParser()
+
+
+def get_brainstorming_epoch_map_chain(llm):
+    """QNN Step 4B intermediate: compact epoch map (not the final user answer)."""
+    prompt = ChatPromptTemplate.from_template("""
+You are the QNN Epoch Cartographer.
+After one forward pass of a layered expert network, produce a compact EPOCH MAP.
+
+Original Request:
+---
+{original_request}
+---
+
+Thinking Challenge (this epoch):
+---
+{current_problem}
+---
+
+Expert Reflections (this epoch and history):
+---
+{agent_solutions}
+---
+
+Produce a compact markdown map with exactly these sections:
+1. **Clusters of agreement**
+2. **Productive tensions / trade-offs**
+3. **Novel mechanisms** (angles nobody started with)
+4. **Dead ends** (collapsed under critique)
+5. **Open questions / missing evidence**
+
+Keep it dense (roughly half a page). Do NOT write a polished final answer.
+Do NOT invent files or APIs not supported by the reflections.
 """)
     return prompt | llm | StrOutputParser()
 
 
 def get_brainstorming_synthesis_chain(llm):
-    """
-    Synthesizes multiple agent reflections into a cohesive narrative for the epoch.
-    Now includes prior conversation context for continuity across turns.
-    """
+    """QNN Step 5 core: draft Solution-Space Report from evolved expert history."""
     prompt = ChatPromptTemplate.from_template("""
-You are a Master Synthesizer of Ideas.
-You have heard from a panel of experts who have reflected on a core concept over multiple iterations.
+You are a Master Synthesizer for a Qualitative Neural Network (QNN) brainstorm.
+
+You have layered, multi-epoch expert reflections. Produce a SOLUTION-SPACE REPORT draft —
+a map of divergent strategies — NOT a single premature patch and NOT a flat "expert panel average".
 
 Core Concept & Context:
 ---
@@ -270,35 +367,31 @@ Document / Reference Material:
 {document_context}
 ---
 
-Expert Reflections (History of Ideas):
+Expert Reflections (History of Ideas across layers/epochs):
 ---
 {agent_solutions}
 ---
 
-Your Task:
-Synthesize these perspective into a single, comprehensive, and novel architecture or solution.
 CRITICAL INSTRUCTIONS:
-1. You MUST incorporate specific details from the "Document / Reference Material" if provided. Do not ignore them.
-2. You MUST build upon the specific "Expert Reflections". These contain the evolved ideas. Do not hallucinate a generic answer.
-3. If the experts proposed specific names, mechanisms, or theories, cite them and integrate them.
-4. Your goal is to produce the "Final Answer" that represents the culmination of this brainstorming session.
-5. If the user asked for a specific format (e.g. code, architecture), ensure you provide it.
+1. Incorporate document/reference details when provided.
+2. Build only on Expert Reflections — cite agent ids or specialties when possible.
+3. Prefer 3–7 distinct strategies with mechanisms and falsifiers over one vague winner.
+4. Include dead ends so the user does not re-circle.
+5. Rank top 1–3 next probes (smallest experiment first), not full implementations.
+6. Explicitly note: the QNN does not ship the fix; hand off to edit→run→debug (or design→spike).
 
-Synthesized Narrative:
+Draft the report in markdown with clear headings.
 """)
     return prompt | llm | StrOutputParser()
 
 
 def get_problem_summarizer_chain(llm):
-    """
-    Summarizes the user's input and document context into a concise briefing for experts.
-    Prevents overwhelming agents with full document text.
-    """
+    """QNN Step 0: concise Impasse / Enrich brief from user request + documents."""
     prompt = ChatPromptTemplate.from_template("""
-You are a Research Director.
-Your goal is to brief a team of expert agents on a problem they need to solve.
-They need to know the core of the user's request AND the key constraints or information provided in the reference documents.
-They do NOT need the full text of the documents, just the essential context.
+You are a Research Director briefing a QNN expert network.
+
+They need the core of the user's request AND key constraints from reference documents —
+not the full document text.
 
 User's Request:
 ---
@@ -310,44 +403,53 @@ Reference Documents (Full Text):
 {document_context}
 ---
 
-Create a concise "Problem Usage Summary" (1-2 paragraphs).
-1. Clearly state the user's goal.
-2. Summarize the most relevant facts/constraints from the documents that apply to this goal.
-3. Keep it high-level but specific enough for an expert to understand the context.
+Create a concise "QNN Brief" (1–2 paragraphs) covering:
+1. Goal / problem statement (stuck debug vs feature enrichment if clear)
+2. Critical facts, constraints, and relevant loci from documents
+3. What success would look like
+4. Any failed approaches or thin areas mentioned
 
-Problem Usage Summary:
+QNN Brief:
 """)
     return prompt | llm | StrOutputParser()
 
 
 def get_brainstorming_polisher_chain(llm):
-    """
-    Takes the initial brainstorming synthesis and formats it into a nice,
-    conversational, and extensive final answer.
-    """
+    """QNN Step 5 polish: format Solution-Space Report for the user."""
     prompt = ChatPromptTemplate.from_template("""
-You are a master communicator and storyteller.
-You have been given a technical or conceptual synthesis of ideas generated during a brainstorming session with multiple expert agents.
+You are a master technical communicator for QNN brainstorm outputs.
 
 Original User Request:
 ---
 {original_request}
 ---
 
-Initial Technical Synthesis:
+Initial Solution-Space Draft:
 ---
 {initial_synthesis}
 ---
 
-Your Task:
-Transform this technical synthesis into a highly conversational, extensive, and engaging final response for the user.
-1. Use a warm, professional, and slightly visionary tone.
-2. Structure the answer into logically flowing sections with descriptive headings.
-3. Elaborate on the "why" and "how" of the proposed solution.
-4. Ensure the response feels complete and provides a clear narrative arc from the user's initial question to the proposed outcome.
-5. Use markdown for beautiful formatting (bold, lists, headers).
-6. Do not lose the technical precision, but wrap it in a conversational layer that makes it accessible and inspiring.
+Transform the draft into a clear, engaging Solution-Space Report with this structure:
 
-Final Conversational Answer:
+## 1. Impasse / Goal
+Restate what we are stuck on or enriching, and why local approaches were thin.
+
+## 2. Topology & Process
+If the draft lacks topology detail, note that a layered multi-epoch QNN expert network produced this map.
+
+## 3. Divergent Strategy Map
+For each promising strategy (typically 3–7): Name, Mechanism, Why it might work,
+Falsifiers, Risks, First probe, Confidence (Low/Med/High).
+
+## 4. Dead Ends
+Angles discarded and why.
+
+## 5. Recommended Next Steps (Handoff)
+Top 1–3 strategies ordered for the grounded coding loop:
+probe/instrument → minimal spike or failing test → implement only after a probe succeeds.
+
+Close with: **The QNN does not ship the fix. Pick a direction, then resume edit → run → debug.**
+
+Use markdown. Keep technical precision. Warm professional tone. Do not invent unsupported claims.
 """)
     return prompt | llm | StrOutputParser()

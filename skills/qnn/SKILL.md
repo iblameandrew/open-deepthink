@@ -165,59 +165,89 @@ Mode: Auto|Manual — reason for size
 
 ---
 
-## Step 2 — Seed Guiding Concepts
+## Step 2 — Seed verbs and nouns (problem-space word pool)
 
-Generate exactly **W** distinct guiding concepts (short phrases) that span the
-problem space. They must not be synonyms of each other.
+**This matches original Algorithm Mode spanning.** Do **not** invent a flat list
+of expert labels ("Security Expert", "UX Expert"). Personas are spanned from
+**linguistically loaded verbs and nouns** drawn from the problem space.
 
-For programming / design impasses, bias seeds toward orthogonal lenses such as:
+### 2A. Generate the seed pool
 
-- Concurrency / ordering
-- Resource lifecycle / ownership
-- Data flow / invariants
-- Performance / complexity
-- API / contract boundaries
-- Observability / repro
-- Failure modes / partial failure
-- UX / operability
-- Security / trust boundaries
-- Historical debt / migration
-- Feature signal / information content (what the artifact should *measure* or *expose*)
-- Evaluation / falsifiability of proposed features
+Let `V = vector_word_size` (default **6**).  
+Generate exactly `word_count = V × W` (or more) unique seed tokens:
 
-Output only the concept list (used as seeds for personas). Example:
+1. About **half verbs** — abstract, linguistically loaded, related to the problem
+   (same spirit as Algorithm Mode `get_seed_generation_chain`).
+2. About **half nouns** — entities, forces, structures, or domains in/near the
+   problem space.
+3. Include words **tightly related** to the problem **and** words from **far
+   semantic fields** of knowledge (so unexpected specializations can appear).
+4. Single tokens only. No filler (`the`, `solve`, `problem`).
 
-`Ordering Ownership Invariants Observability Contracts`
+Output as one space-separated string. Example for a deadlock:
+
+```
+entangle latch reconverge ownership invariant braid entropy horizon serialize arbitrate telemetry crystallize
+```
+
+### 2B. Sample a guiding word-vector per column
+
+For each column `w = 0 .. W-1` (shared across all layers of that column):
+
+- Sample **V** distinct words from the seed pool (without forcing uniqueness
+  across columns; random sample like Algorithm Mode MBTI seed bags).
+- That sample is `guiding_words[w]` — the column's word-vector.
+
+Log the pool and each column vector. These words are the DNA of the personas.
 
 ---
 
-## Step 3 — Materialize Personas (QNN Nodes)
+## Step 3 — Span personas from guiding_words (input spanner)
 
-For each cell `(layer ℓ, node w)` create a persona tied to guiding concept `w`:
+**Same method as Algorithm Mode `get_input_spanner_chain`:** each agent is an
+Agent Architect product of **guiding_words + problem**, not a pre-named expert.
+
+For each cell `(layer ℓ, node w)` with `guiding_words = guiding_words[w]`:
 
 | Layer | Role |
 |------:|------|
-| **0** | **Divergent** — "What if?", breadth, alternate framings, unusual strategies |
-| **1+** | **Convergent / critical** — critique, refine, stress-test, synthesize upstream |
+| **0** | **Divergent** — breadth / "what if" **through** the word-vector |
+| **1+** | **Convergent / critical** — critique/refine upstream **through** the word-vector |
 
-Each persona is a JSON-shaped record (store in your working notes; do not dump
-all raw JSON to the user unless asked):
+### Spanning procedure (mandatory)
+
+1. **Career** — realistic professional role specialized for the problem, colored
+   by the guiding words.
+2. **Attributes** — ~8–12 descriptors clearly influenced by the verbs (action
+   style) and nouns (domain objects/forces).
+3. **Skills** — 4–6 methodologies that extend the Career + guiding words.
+4. **system_prompt** — second person; mandates strategy angles + falsifiers;
+   **no production patches**.
+
+Store each persona (internal; do not dump all raw JSON unless asked):
 
 ```json
 {
   "id": "L{ℓ}N{w}",
   "name": "<memorable name>",
-  "specialty": "<niche specialty for this concept + problem>",
+  "specialty": "<niche career from guiding_words + problem>",
   "emoji": "<one emoji>",
-  "system_prompt": "<2–3 sentences: who they are, specialty, layer goal (diverge vs converge)>"
+  "guiding_words": "<space-separated verb/noun vector for this column>",
+  "attributes": ["..."],
+  "skills": ["..."],
+  "system_prompt": "<second-person prompt: career, how words shape cognition, layer role>"
 }
 ```
 
 Rules:
 
-- Personas must be **specific to this impasse**, not generic "Senior Engineer".
+- **Hard fail** if every persona is a generic "Senior Engineer" or ignores its
+  `guiding_words`.
 - Layer 0 explores; deeper layers **must** receive prior-layer outputs.
-- If repo context exists, personas should reference real modules/paths from the brief.
+- If repo context exists, ground careers/skills in real modules from the brief
+  while still letting far-field seed words invent adjacent specialties.
+- Columns share the same word-vector across layers; layer only changes
+  diverge vs converge role.
 
 ---
 
@@ -317,7 +347,8 @@ Structure it exactly as follows:
 One short paragraph: what we're stuck on and why local fixes failed.
 
 ### 2. Topology & process
-`L×W`, `E` epochs, guiding concepts list, one line on how personas evolved.
+`L×W`, `E` epochs, `V` (vector size), sample of seed verbs/nouns, each column's
+`guiding_words`, one line on how personas evolved via Mirror Descent.
 
 ### 3. Divergent strategy map
 For each promising strategy (typically 3–7):
@@ -394,6 +425,9 @@ This skill is **portable**: any agent that can follow a structured procedure
 - Flat "ask 5 experts once and average" — missing layers, epochs, evolution
 - Writing a full PR as the QNN output
 - All personas as generic senior engineers
+- **Seeding personas as topic labels** ("Security", "UX") instead of **verbs +
+  nouns** sampled from the problem space (breaks Algorithm Mode spanning)
+- Ignoring `guiding_words` when writing careers/attributes/skills
 - Ignoring failed approaches already listed in the brief
 - Declaring a single winner without falsifiers
 - Running a massive topology without user request or complexity justification
@@ -405,9 +439,12 @@ This skill is **portable**: any agent that can follow a structured procedure
 
 ```
 Impasse Brief
-    → choose topology (L, W, E)
-    → seed W guiding concepts
-    → materialize L×W personas
+    → choose topology (L, W, E); V = vector_word_size (default 6)
+    → seed pool: V×W verbs + nouns (problem-related + far semantic fields)
+    → for each column w: sample V guiding_words[w]
+    → for each cell (ℓ, w): span persona from guiding_words[w]
+         (career + attributes + skills — same as Algorithm input spanner)
+         layer 0 = diverge; layer 1+ = converge/critique
     → for epoch in 0..E-1:
           forward: layer0 ∥ → layer1 → … → layerL-1
           synthesize epoch map
@@ -421,3 +458,7 @@ Impasse Brief
 
 This skill is the hybrid model: **QNN for strategic depth when stuck**;
 **tool-heavy coding agent for implementation and verification**.
+
+Persona spanning is **not** "pick W expert titles." It is **seed verbs/nouns →
+word-vectors → input-span personas**, identical in spirit to open-deepthink
+Algorithm Mode (`seed_generation` + `input_spanner`).

@@ -117,13 +117,23 @@ Agent System Prompt to analyze:
 
 
 def get_seed_generation_chain(llm):
-    """Generates seed verbs for agent creation based on a problem."""
+    """Generates seed verbs (and problem-space nouns) for agent word-vectors.
+
+    Used by Algorithm Mode before input_spanner. Words are sampled into
+    per-archetype guiding_words bags that shape persona attributes.
+    """
     prompt = ChatPromptTemplate.from_template("""
-Given the following problem, generate exactly {word_count} verbs that are related to the problem, but also verbs related to far semantic fields of knowledge. The verbs should be abstract and linguistically loaded. Output them as a single space-separated string of unique verbs.
+Given the following problem, generate exactly {word_count} unique seed words for spanning agent personas.
+
+Mix:
+- **Verbs** — abstract, linguistically loaded, related to the problem AND to far semantic fields of knowledge.
+- **Nouns** — entities, forces, structures, or domains in/near the problem space (and some far-field nouns).
+
+Prefer about half verbs and half nouns. Single tokens only. No filler words.
 
 Problem: "{problem}"
 
-Generate the verbs:
+Output them as a single space-separated string of unique words:
 """)
     return prompt | llm | StrOutputParser()
 

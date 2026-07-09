@@ -56,6 +56,8 @@ from deepthink.chains import (
     get_brainstorming_spanner_chain,
     get_problem_summarizer_chain,
     get_brainstorming_polisher_chain,
+    get_brainstorming_reframer_chain,
+    get_brainstorming_epoch_map_chain,
     get_task_master_chain,
     get_seed_creator_chain,
     get_mirror_descent_chain,
@@ -116,6 +118,14 @@ chk("get_problem_summarizer_chain", lambda: (get_problem_summarizer_chain(llm),)
 chk(
     "get_brainstorming_polisher_chain",
     lambda: (get_brainstorming_polisher_chain(llm),)[0],
+)
+chk(
+    "get_brainstorming_reframer_chain",
+    lambda: (get_brainstorming_reframer_chain(llm),)[0],
+)
+chk(
+    "get_brainstorming_epoch_map_chain",
+    lambda: (get_brainstorming_epoch_map_chain(llm),)[0],
 )
 chk("get_task_master_chain", lambda: (get_task_master_chain(llm),)[0])
 chk("get_seed_creator_chain", lambda: (get_seed_creator_chain(llm),)[0])

@@ -210,18 +210,25 @@ async def t6():
 chk("synthesis_node brainstorm+final_epoch builds final_solution", t6)
 
 
-# 7) Synthesis node - brainstorm mode, intermediate epoch (skips)
+# 7) Synthesis node - brainstorm mode, intermediate epoch (QNN epoch map)
 async def t7():
     llm = CoderMockLLM()
     s = base_state(mode="brainstorm", is_code_request=False)
     s["epoch"] = 0  # intermediate
+    s["memory"] = {
+        "agent_0_0": [{"proposed_solution": "reflection 1", "reasoning": "r1"}],
+        "agent_0_1": [{"proposed_solution": "reflection 2", "reasoning": "r2"}],
+    }
     node = create_synthesis_node(llm)(s)
     out = await node
     assert "final_solution" in out
-    assert out["final_solution"] is None
+    assert out["final_solution"] is not None
+    assert out["final_solution"].get("mode") == "brainstorm"
+    assert out["final_solution"].get("epoch_map") is True
+    assert "previous_solution" in out
 
 
-chk("synthesis_node brainstorm+intermediate_epoch skips synthesis", t7)
+chk("synthesis_node brainstorm+intermediate_epoch builds QNN epoch map", t7)
 
 
 # 8) Synthesis node with no agent outputs
@@ -346,16 +353,30 @@ async def t15():
 chk("reframe_and_decompose_node updates problems in algorithm mode", t15)
 
 
-# 16) Reframe and decompose - brainstorm mode
+# 16) Reframe and decompose - brainstorm mode (QNN Step 4D — harder challenge)
 async def t16():
     llm = CoderMockLLM()
-    s = base_state(mode="brainstorm")
+    s = base_state(mode="brainstorm", is_code_request=False)
+    s["final_solution"] = {
+        "proposed_solution": "epoch map: ownership vs ordering tension",
+        "mode": "brainstorm",
+        "epoch_map": True,
+    }
+    s["original_request"] = "fix the deadlock"
+    s["current_problem"] = "fix the deadlock"
     node = create_reframe_and_decompose_node(llm)(s)
     out = await node
-    assert out == {}  # skips
+    assert "current_problem" in out, f"expected QNN reframe, got {out}"
+    assert "decomposed_problems" in out
+    assert out["original_request"] == "fix the deadlock"  # ground truth preserved
+    assert out["current_problem"] != "fix the deadlock" or "Harder" in out["current_problem"]
+    # All agents share the new thinking challenge
+    assert len(out["decomposed_problems"]) == sum(
+        len(layer) for layer in s["all_layers_prompts"]
+    )
 
 
-chk("reframe_and_decompose_node skips in brainstorm mode", t16)
+chk("reframe_and_decompose_node QNN reframe in brainstorm mode", t16)
 
 
 # 17) Update agent prompts - algorithm mode

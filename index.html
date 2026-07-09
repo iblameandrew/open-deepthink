@@ -1297,8 +1297,8 @@
         if (document.getElementById('node-chat-container')) {
             nodeChatInstance = NodeChat.init('node-chat-container', {
                 title: 'Brainstorm',
-                subtitle: 'Auto small panel or spawn a massive army of agents',
-                placeholder: 'What would you like to brainstorm?',
+                subtitle: 'QNN expert panel — layered epochs, Mirror Descent, solution-space map',
+                placeholder: 'What would you like the QNN to explore?',
                 onSend: async (message, chat) => {
                     const provider = localStorage.getItem('llm_provider') || 'openrouter';
                     const openrouterApiKey = localStorage.getItem('openrouter_api_key');

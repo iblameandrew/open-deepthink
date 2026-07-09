@@ -69,6 +69,8 @@ from deepthink.chains import (
     get_brainstorming_spanner_chain,
     get_problem_summarizer_chain,
     get_brainstorming_polisher_chain,
+    get_brainstorming_reframer_chain,
+    get_brainstorming_epoch_map_chain,
 )
 from deepthink.knowledge_distillation import DistillationGraph
 from deepthink.utils import clean_and_parse_json, execute_code_in_sandbox
@@ -774,25 +776,75 @@ def get_user(user_id: int):
                     "reasoning": "Mock complexity estimation for debug mode.",
                 }
             )
-        elif "you are a concept spanner" in prompt:
-            return "Strategy Ethics Innovation Scalability Implementation"
+        elif "you are a concept spanner" in prompt or "you are the qnn seed generator" in prompt:
+            return (
+                "distill reconverge entangle ownership latch invariant horizon entropy "
+                "braid crystallize probe reframe serialize arbitrate telemetry"
+            )
         elif "you are a research director" in prompt:
             return "This is a mock research summary briefing the team on the core problem and document context."
         elif "you are a qnn node generator" in prompt:
             return json.dumps(
                 {
                     "name": "Mock Expert",
-                    "specialty": "General Debugging",
+                    "specialty": "Word-vector spanning specialist",
                     "emoji": "🤖",
-                    "system_prompt": "You are a mock expert for debugging purposes.",
+                    "guiding_words": "distill ownership invariant",
+                    "attributes": [
+                        "Analytical Precision",
+                        "Precipitated Action",
+                        "Systems Intuition",
+                    ],
+                    "skills": ["failure-mode mapping", "invariant probing"],
+                    "system_prompt": (
+                        "You are a mock QNN expert spanned from problem-space verbs and nouns. "
+                        "Map strategies with falsifiers; no production patches."
+                    ),
                 }
             )
         elif "reflect on the input from your specific persona" in prompt:
             return "As a mock expert, I reflect that this system is functioning correctly in debug mode."
-        elif "you are a master synthesizer of ideas" in prompt:
-            return "The collective reflections suggest that the mock implementation is sufficient for testing."
-        elif "you are a master communicator and storyteller" in prompt:
-            return "### Synthesis of Ideas\n\nOur expert panel has concluded that this mock session is a success. We've explored the conceptual space and converged on a solid debugging foundation."
+        elif "you are a master synthesizer of ideas" in prompt or "you are a master synthesizer for a qualitative neural network" in prompt:
+            return (
+                "## Solution-Space Draft\n\n"
+                "### Strategy A — Instrumentation First\n"
+                "Mechanism: add ordered event logs at ownership boundaries.\n"
+                "Falsifiers: logs show no interleaving under load.\n"
+            )
+        elif "you are a master technical communicator for qnn" in prompt or "you are a master communicator and storyteller" in prompt:
+            return (
+                "## 1. Impasse / Goal\nMock QNN session for testing.\n\n"
+                "## 2. Topology & Process\nLayered multi-epoch expert network.\n\n"
+                "## 3. Divergent Strategy Map\n"
+                "**Instrumentation First** — Mechanism: ordered logs. Falsifiers: no interleaving. "
+                "Risks: noise. First probe: one busy-path span. Confidence: Med.\n\n"
+                "## 4. Dead Ends\nBlind retry loops without evidence.\n\n"
+                "## 5. Recommended Next Steps (Handoff)\n"
+                "1. Probe with logs. 2. Minimal failing test. 3. Implement after probe.\n\n"
+                "**The QNN does not ship the fix. Pick a direction, then resume edit → run → debug.**"
+            )
+        elif "you are the qnn epoch cartographer" in prompt:
+            return (
+                "1. **Clusters of agreement** — Need clearer ownership.\n"
+                "2. **Productive tensions** — Speed vs safety.\n"
+                "3. **Novel mechanisms** — Lease-based handoff.\n"
+                "4. **Dead ends** — Global lock everything.\n"
+                "5. **Open questions** — Who owns the timeout path?"
+            )
+        elif "you are the qnn problem re-framer" in prompt:
+            return json.dumps(
+                {
+                    "new_problem": (
+                        "Harder challenge: re-analyze the original request under partial failure, "
+                        "concurrent callers, and missing observability — still map strategies only."
+                    )
+                }
+            )
+        elif "you are a persona evolver" in prompt:
+            return (
+                "You are an evolved QNN expert focused on invariants and falsifiers. "
+                "Diverge or critique per your layer. No production patches."
+            )
         else:
             # For synthesis or fallback
             return json.dumps(
@@ -1289,6 +1341,7 @@ def create_agent_node(llm, node_id):
             )
             return {}
 
+        prev_layer_outputs = []
         if layer_index == 0:
             await log_stream.put(
                 f"LOG: Agent {node_id} (Layer 0) is processing its sub-problem."
@@ -1300,11 +1353,17 @@ def create_agent_node(llm, node_id):
             prev_layer_index = layer_index - 1
             num_agents_prev_layer = len(state["all_layers_prompts"][prev_layer_index])
 
-            prev_layer_outputs = []
             for i in range(num_agents_prev_layer):
                 prev_node_id = f"agent_{prev_layer_index}_{i}"
                 if prev_node_id in state["agent_outputs"]:
-                    prev_layer_outputs.append(state["agent_outputs"][prev_node_id])
+                    # Label upstream outputs so deeper layers can cite them
+                    upstream = state["agent_outputs"][prev_node_id]
+                    if isinstance(upstream, dict):
+                        prev_layer_outputs.append({"agent_id": prev_node_id, **upstream})
+                    else:
+                        prev_layer_outputs.append(
+                            {"agent_id": prev_node_id, "output": upstream}
+                        )
 
             await log_stream.put(
                 f"LOG: Agent {node_id} (Layer {layer_index}) is processing {len(prev_layer_outputs)} outputs from Layer {prev_layer_index}."
@@ -1348,37 +1407,78 @@ def create_agent_node(llm, node_id):
 
         memory_str = "\n".join([f"- {json.dumps(mem)}" for mem in agent_memory_history])
 
-        # Check if we're in brainstorm mode and add context
+        # Brainstorm mode: full QNN layered forward pass (do NOT flatten to original_request).
+        # Algorithm mode keeps decomposed_problems (L0) / upstream outputs (L1+).
         brainstorm_context = ""
+        json_schema_block = "#Your JSON formatted response:"
         if state.get("mode") == "brainstorm":
-            prior_conv = state.get("brainstorm_prior_conversation", "")
-            doc_context = state.get("brainstorm_document_context", "")
+            prior_conv = state.get("brainstorm_prior_conversation", "") or ""
+            brief = (
+                state.get("brainstorm_problem_summary")
+                or state.get("original_request")
+                or ""
+            )
+            thinking_challenge = (
+                state.get("current_problem") or state.get("original_request") or ""
+            )
+            epoch_n = state.get("epoch", 0)
 
             if prior_conv:
-                brainstorm_context += f"""
-#Prior Conversation Context:
+                brainstorm_context = f"""
+# Prior Conversation Context:
 ---
 {prior_conv[:20000]}
 ---
 """
-            # NOTE: Document context is intentionally excluded from individual agent prompts ("inner neurons")
-            # to prevent clutter. It is only passed to the planner (complexity/decomposition) and synthesis agent.
-            # if doc_context:
-            #    brainstorm_context += f"""
-            # #Reference Documents:
-            # ---
-            # {doc_context[:30000]}
-            # ---
-            # """
 
-        input_data = state["original_request"]
+            if layer_index == 0:
+                await log_stream.put(
+                    f"LOG: [QNN FORWARD] {node_id} Layer 0 DIVERGENT pass (epoch {epoch_n})."
+                )
+                input_data = f"""## QNN Brief
+{brief}
 
-        # Use the summarized problem statement if available (for "inner neurons")
-        # avoiding raw document context overload
-        if state.get("brainstorm_problem_summary"):
-            input_data = state[
-                "brainstorm_problem_summary"
-            ]  # Use the summary instead of just the original request if available
+## Original Request (ground truth — do not replace)
+{state.get("original_request", "")}
+
+## Thinking Challenge (epoch {epoch_n})
+{thinking_challenge}
+
+## Layer 0 Role
+Divergent exploration. Span strategies and mechanisms. Do NOT write production patches or full file diffs.
+"""
+            else:
+                await log_stream.put(
+                    f"LOG: [QNN FORWARD] {node_id} Layer {layer_index} CONVERGENT pass "
+                    f"({len(prev_layer_outputs)} upstream) epoch {epoch_n}."
+                )
+                input_data = f"""## QNN Brief
+{brief}
+
+## Original Request (ground truth — do not replace)
+{state.get("original_request", "")}
+
+## Thinking Challenge (epoch {epoch_n})
+{thinking_challenge}
+
+## Layer {layer_index} Role
+Convergent / critical. Critique, refine, reject, or combine upstream outputs. Cite agent_id values.
+Do NOT restate Layer 0. Do NOT write production patches.
+
+## Upstream Layer Outputs
+{json.dumps(prev_layer_outputs, indent=2)}
+"""
+
+            json_schema_block = """# Your JSON response (required keys):
+{
+  "original_problem": "<brief or challenge you addressed>",
+  "proposed_solution": "<strategic angle / mechanism — NOT a production patch>",
+  "reasoning": "<why this might break the impasse or enrich the artifact>",
+  "falsifiers": "<evidence that would kill this angle>",
+  "risks": "<ways it could fail>",
+  "skills_used": []
+}
+"""
 
         full_prompt = f"""
 #System Prompt (Your Persona & Task):
@@ -1394,7 +1494,7 @@ def create_agent_node(llm, node_id):
 ---
 {input_data}
 ---
-#Your JSON formatted response:
+{json_schema_block}
 """
         await log_stream.put(f"LOG: Agent {node_id} prompt:\n{full_prompt}")
 
@@ -1506,17 +1606,7 @@ def create_synthesis_node(llm):
         )
 
         if state.get("mode") == "brainstorm":
-            # Brainstorm Synthesis — uses `memory`, NOT `agent_outputs`.
-            # Optimization: Only synthesize on the final epoch
-            if state["epoch"] < state["max_epochs"] - 1:
-                await log_stream.put(
-                    f"LOG: [BRAINSTORM] Skipping intermediate synthesis (Epoch {state['epoch']}) to save resources."
-                )
-                return {"final_solution": None}
-
-            # Brainstorm synthesis uses `memory` (per-agent history of reflections),
-            # NOT `agent_outputs`. The check above for last_layer_outputs is for
-            # the algorithm path. In brainstorm mode we must not bail out here.
+            # QNN brainstorm synthesis uses full `memory` (layered multi-epoch history).
             if not state.get("memory"):
                 await log_stream.put(
                     "WARNING: Synthesis node received no inputs (brainstorm memory empty)."
@@ -1525,88 +1615,91 @@ def create_synthesis_node(llm):
                     "final_solution": {"error": "Synthesis node received no inputs."}
                 }
 
-        if state.get("mode") == "brainstorm":
-            # Brainstorm Synthesis
-
-            # Optimization: Only synthesize on the final epoch
-            if state["epoch"] < state["max_epochs"] - 1:
-                await log_stream.put(
-                    f"LOG: [BRAINSTORM] Skipping intermediate synthesis (Epoch {state['epoch']}) to save resources."
-                )
-                return {"final_solution": None}
-
-            # Brainstorm synthesis uses `memory` (per-agent history of reflections),
-            # NOT `agent_outputs`. The check above for last_layer_outputs is for
-            # the algorithm path. In brainstorm mode we must not bail out here.
-            if not state.get("memory"):
-                await log_stream.put(
-                    "WARNING: Synthesis node received no inputs (brainstorm memory empty)."
-                )
-                return {
-                    "final_solution": {"error": "Synthesis node received no inputs."}
-                }
-
-            await log_stream.put(
-                "LOG: [BRAINSTORM] Final Epoch reached. Synthesizing full conversation history..."
-            )
-
+            is_final_epoch = state["epoch"] >= state["max_epochs"] - 1
             agent_reflections = ""
             memory = state.get("memory", {})
 
-            # Iterate through layers and agents to get ordered history
             for layer_idx, layer in enumerate(state.get("all_layers_prompts", [])):
                 for agent_idx in range(len(layer)):
                     node_id = f"agent_{layer_idx}_{agent_idx}"
                     history = memory.get(node_id, [])
 
                     for hist_idx, entry in enumerate(history):
-                        # Robust check to prevent crashes on non-dict entries
                         if isinstance(entry, dict):
                             sol = entry.get("proposed_solution")
                             reas = entry.get("reasoning")
+                            falsifiers = entry.get("falsifiers", "")
+                            risks = entry.get("risks", "")
                             if sol and not str(sol).startswith("Error"):
-                                agent_reflections += f"Agent {node_id} (Epoch {hist_idx}):\nReflection: {sol}\nReasoning: {reas}\n\n"
+                                agent_reflections += (
+                                    f"Agent {node_id} (Epoch {hist_idx}):\n"
+                                    f"Reflection: {sol}\n"
+                                    f"Reasoning: {reas}\n"
+                                )
+                                if falsifiers:
+                                    agent_reflections += f"Falsifiers: {falsifiers}\n"
+                                if risks:
+                                    agent_reflections += f"Risks: {risks}\n"
+                                agent_reflections += "\n"
 
-            # DEBUG LOGGING FOR CONTEXT
-            doc_ctx = state.get("brainstorm_document_context", "")
-            prior_conv = state.get("brainstorm_prior_conversation", "")
-            mem_keys = list(memory.keys())
+            doc_ctx = state.get("brainstorm_document_context", "") or ""
+            prior_conv = state.get("brainstorm_prior_conversation", "") or ""
+            synthesis_input_concept = (
+                state.get("brainstorm_problem_summary")
+                or state["original_request"]
+            )
+            thinking_challenge = (
+                state.get("current_problem") or state["original_request"]
+            )
 
             await log_stream.put(
-                f"LOG: [DEBUG SYNTHESIS] Doc Context Len: {len(doc_ctx)}"
+                f"LOG: [QNN SYNTHESIS] epoch={state['epoch']} final={is_final_epoch} "
+                f"reflections_chars={len(agent_reflections)} memory_keys={list(memory.keys())}"
             )
-            await log_stream.put(
-                f"LOG: [DEBUG SYNTHESIS] Prior Conv Len: {len(prior_conv)}"
-            )
-            await log_stream.put(f"LOG: [DEBUG SYNTHESIS] Memory Keys: {mem_keys}")
-            await log_stream.put(
-                f"LOG: [DEBUG SYNTHESIS] Agent Reflections Len: {len(agent_reflections)}"
-            )
-            if len(agent_reflections) < 50:
+
+            if not is_final_epoch:
+                # Step 4B: compact epoch map (feeds reframe + next epoch; no FINAL_ANSWER)
                 await log_stream.put(
-                    f"LOG: [DEBUG SYNTHESIS] Reflections Content (First 50): {agent_reflections[:50]}"
+                    f"LOG: [QNN STEP 4B] Epoch map for intermediate epoch {state['epoch']}..."
                 )
+                epoch_map_chain = get_brainstorming_epoch_map_chain(llm)
+                epoch_map_str = await epoch_map_chain.ainvoke(
+                    {
+                        "original_request": synthesis_input_concept,
+                        "current_problem": thinking_challenge,
+                        "agent_solutions": agent_reflections,
+                    }
+                )
+                final_solution = {
+                    "proposed_solution": epoch_map_str,
+                    "reasoning": f"QNN epoch map (epoch {state['epoch']}, intermediate).",
+                    "mode": "brainstorm",
+                    "epoch_map": True,
+                    "epoch": state["epoch"],
+                }
+                await log_stream.put(
+                    f"SUCCESS: [QNN] Intermediate epoch map ready (epoch {state['epoch']})."
+                )
+                return {
+                    "final_solution": final_solution,
+                    "previous_solution": epoch_map_str,
+                }
 
-            # Use the summarized problem (which includes doc insights) if available, otherwise raw request
-            synthesis_input_concept = state.get("brainstorm_problem_summary")
-            if not synthesis_input_concept:
-                synthesis_input_concept = state["original_request"]
-
+            # Step 5: final Solution-Space Report
+            await log_stream.put(
+                "LOG: [QNN STEP 5] Final epoch — Solution-Space Report synthesis..."
+            )
             final_solution_str = await synthesis_chain.ainvoke(
                 {
                     "original_request": synthesis_input_concept,
                     "agent_solutions": agent_reflections,
-                    "prior_conversation": prior_conv[
-                        :15000
-                    ],  # Limit to prevent token overflow
-                    "document_context": doc_ctx[
-                        :20000
-                    ],  # Limit to prevent token overflow
+                    "prior_conversation": prior_conv[:15000],
+                    "document_context": doc_ctx[:20000],
                 }
             )
 
             await log_stream.put(
-                "LOG: [BRAINSTORM] Polishing synthesis for conversational delivery..."
+                "LOG: [QNN STEP 5] Polishing Solution-Space Report for delivery..."
             )
             polisher_chain = get_brainstorming_polisher_chain(llm)
             final_solution_str = await polisher_chain.ainvoke(
@@ -1618,14 +1711,14 @@ def create_synthesis_node(llm):
 
             final_solution = {
                 "proposed_solution": final_solution_str,
-                "reasoning": "Brainstorm synthesis and polishing complete.",
+                "reasoning": "QNN Solution-Space Report complete.",
                 "mode": "brainstorm",
+                "epoch_map": False,
             }
             await log_stream.put(
                 f"LOG: [DEBUG] Emitting FINAL_ANSWER token to frontend. Solution length: {len(final_solution_str)}"
             )
-            await log_stream.put(f"SUCCESS: Brainstorm synthesis complete.")
-            # Send special token for frontend to capture in Chat (JSON encoded for safety)
+            await log_stream.put("SUCCESS: [QNN] Brainstorm Solution-Space Report complete.")
             await log_stream.put(f"FINAL_ANSWER: {json.dumps(final_solution_str)}")
 
         else:
@@ -1890,7 +1983,9 @@ def create_metrics_node(llm):
 
 def create_reframe_and_decompose_node(llm):
     """
-    NEW: This node reframes the main problem and decomposes it into new sub-problems.
+    QNN Step 4D + algorithm decomposition:
+    - Brainstorm: harder thinking challenge; original_request stays ground truth.
+    - Algorithm: reframe + full sub-problem re-decomposition.
     """
 
     async def reframe_and_decompose_node(state: GraphState):
@@ -1903,9 +1998,54 @@ def create_reframe_and_decompose_node(llm):
 
         if state.get("mode") == "brainstorm":
             await log_stream.put(
-                "LOG: [BRAINSTORM] Skipping Problem Reframing to maintain focus on original concept."
+                "LOG: [QNN STEP 4D] Reframing thinking challenge for next epoch "
+                "(original request remains ground truth)..."
             )
-            return {}
+            reframer_chain = get_brainstorming_reframer_chain(llm)
+            fs_payload = final_solution
+            if isinstance(final_solution, dict):
+                fs_payload = final_solution.get(
+                    "proposed_solution", json.dumps(final_solution, indent=2)
+                )
+            new_problem_str = await reframer_chain.ainvoke(
+                {
+                    "original_request": original_request,
+                    "current_problem": state.get("current_problem")
+                    or original_request,
+                    "final_solution": fs_payload
+                    if isinstance(fs_payload, str)
+                    else json.dumps(fs_payload, indent=2),
+                    "prior_conversation": state.get(
+                        "brainstorm_prior_conversation", ""
+                    )
+                    or "",
+                }
+            )
+            try:
+                new_problem_data = clean_and_parse_json(new_problem_str)
+                new_problem = (new_problem_data or {}).get("new_problem")
+                if not new_problem:
+                    raise ValueError("Brainstorm re-framer did not return new_problem.")
+                await log_stream.put(
+                    f"SUCCESS: [QNN] Thinking challenge re-framed to: '{new_problem}'"
+                )
+            except (json.JSONDecodeError, AttributeError, ValueError, TypeError) as e:
+                await log_stream.put(
+                    f"ERROR: [QNN] Brainstorm re-frame failed. Raw: {new_problem_str}. Error: {e}."
+                )
+                return {}
+
+            # All nodes share the harder challenge; ground truth stays original_request.
+            new_decomposed = {
+                f"agent_{i}_{j}": new_problem
+                for i, layer in enumerate(state["all_layers_prompts"])
+                for j in range(len(layer))
+            }
+            return {
+                "decomposed_problems": new_decomposed,
+                "original_request": original_request,
+                "current_problem": new_problem,
+            }
 
         reframer_chain = get_problem_reframer_chain(llm)
         new_problem_str = await reframer_chain.ainvoke(
@@ -1981,13 +2121,16 @@ def create_update_agent_prompts_node(llm):
         all_prompts_copy = [layer[:] for layer in state.get("all_layers_prompts", [])]
 
         if state.get("mode") == "brainstorm":
+            await log_stream.put(
+                "LOG: [QNN STEP 4C] Mirror Descent — evolving expert personas..."
+            )
             mirror_chain = get_brainstorming_mirror_descent_chain(
                 llm, params.get("learning_rate", 0.5)
             )
 
             for i in range(len(all_prompts_copy) - 1, -1, -1):
                 await log_stream.put(
-                    f"LOG: [PERSoNA EVOLUTION] Evolving personas in Layer {i}..."
+                    f"LOG: [QNN STEP 4C] Evolving personas in Layer {i}..."
                 )
 
                 update_tasks = []
@@ -2620,9 +2763,13 @@ async def build_and_run_graph(payload: dict = Body(...)):
     try:
         if mode == "brainstorm":
             try:
-                # BRAINSTORM MODE SETUP (Dynamic Spanning)
+                # BRAINSTORM = full QNN expert panel (same algorithm as portable /qnn skill)
                 await log_stream.put(
-                    "--- [BRAINSTORM] Setting up QNN (Auto estimator or user Manual/Massive) ---"
+                    "--- [QNN] Brainstorm expert panel: deepthink algorithm setup ---"
+                )
+                await log_stream.put(
+                    "LOG: [QNN] Steps: 0 Brief → 1 Topology → 2 Seeds → 3 Personas → "
+                    "4 Epochs (forward / map / Mirror Descent / reframe) → 5 Solution-Space Report"
                 )
 
                 # Extract chat history and document context from payload
@@ -2644,23 +2791,25 @@ async def build_and_run_graph(payload: dict = Body(...)):
                         f"LOG: Document context provided ({len(document_context)} characters)."
                     )
 
-                # --- Problem Summarization (if documents are present) - used for both auto and manual ---
+                # --- QNN Step 0: Impasse / Enrich Brief ---
+                await log_stream.put("LOG: [QNN STEP 0] Building Impasse/Enrich brief...")
                 brainstorm_problem_summary = ""
                 if document_context:
-                    summarizer_chain = get_problem_summarizer_chain(
-                        llm
-                    )  # Use main LLM for summarization
+                    summarizer_chain = get_problem_summarizer_chain(llm)
                     brainstorm_problem_summary = await summarizer_chain.ainvoke(
                         {
                             "user_input": user_prompt,
-                            "document_context": document_context[
-                                :50000
-                            ],  # Limit for summarization context window
+                            "document_context": document_context[:50000],
                         }
                     )
+                else:
+                    # Still produce a compact brief from the prompt alone
+                    brainstorm_problem_summary = user_prompt
+                await log_stream.put(
+                    f"LOG: [QNN STEP 0] Brief ready ({len(brainstorm_problem_summary)} chars)."
+                )
 
-                # QNN Topology: user can now choose "manual" for massive QNN at their explicit request,
-                # or "auto" (default) which uses the complexity estimator (still tuned for small panels).
+                # QNN Topology: manual/massive or auto estimator
                 qnn_mode = params.get("qnn_mode", "auto")
                 if "num_epochs" not in params:
                     params["num_epochs"] = 2
@@ -2677,10 +2826,12 @@ async def build_and_run_graph(payload: dict = Body(...)):
                         cot_trace_depth = max(1, raw_layers)
                         width = max(1, raw_width)
                         await log_stream.put(
-                            "--- [BRAINSTORM] USER-REQUESTED MANUAL / MASSIVE QNN TOPOLOGY ---"
+                            "--- [QNN STEP 1] USER MANUAL / MASSIVE TOPOLOGY ---"
                         )
                         await log_stream.put(
-                            f"LOG: Manual/Massive topology: {cot_trace_depth} Layers x {width} Width x {params['num_epochs']} Epochs. (Spawning as requested - this can be huge!)"
+                            f"LOG: [QNN STEP 1] Manual topology: {cot_trace_depth}L × {width}W × "
+                            f"{params['num_epochs']}E "
+                            f"({cot_trace_depth * width} agents). Can be huge."
                         )
                     except Exception as e:
                         await log_stream.put(
@@ -2689,12 +2840,11 @@ async def build_and_run_graph(payload: dict = Body(...)):
                         cot_trace_depth = 5
                         width = 5
                 else:
-                    # AUTO mode (original behavior): estimate complexity, prompt still suggests 2-5 for cost/speed
+                    # AUTO: complexity estimator picks L, W, E (UI epochs overridden by estimator)
                     await log_stream.put(
-                        "--- [BRAINSTORM] Analyzing Complexity & Spanning Concept Space (Auto mode) ---"
+                        "--- [QNN STEP 1] Auto topology via complexity estimator ---"
                     )
 
-                    # 1. Complexity Estimation
                     complexity_chain = get_complexity_estimator_chain(llm)
                     complexity_result_str = await complexity_chain.ainvoke(
                         {
@@ -2702,7 +2852,7 @@ async def build_and_run_graph(payload: dict = Body(...)):
                             "prior_conversation": chat_history_str,
                             "document_context": document_context[:10000]
                             if document_context
-                            else "",  # Truncate for estimation
+                            else "",
                         }
                     )
 
@@ -2713,13 +2863,23 @@ async def build_and_run_graph(payload: dict = Body(...)):
                                 "Failed to parse complexity estimation response"
                             )
 
-                        cot_trace_depth = int(
-                            complexity_data.get("recommended_layers", 2)
+                        cot_trace_depth = max(
+                            1, int(complexity_data.get("recommended_layers", 2))
                         )
-                        width = int(complexity_data.get("recommended_width", 3))
+                        width = max(
+                            1, int(complexity_data.get("recommended_width", 3))
+                        )
+                        # Auto mode uses estimator epochs (skill-aligned)
+                        params["num_epochs"] = max(
+                            1, int(complexity_data.get("recommended_epochs", 2))
+                        )
+                        score = complexity_data.get("complexity_score", "?")
+                        reason = complexity_data.get("reasoning", "")
 
                         await log_stream.put(
-                            f"LOG: Auto topology: {cot_trace_depth} Layers x {width} Width x {params['num_epochs']} Epochs."
+                            f"LOG: [QNN STEP 1] Auto topology: {cot_trace_depth}L × {width}W × "
+                            f"{params['num_epochs']}E "
+                            f"(score={score}, agents={cot_trace_depth * width}). {reason}"
                         )
                     except Exception as e:
                         await log_stream.put(
@@ -2727,30 +2887,81 @@ async def build_and_run_graph(payload: dict = Body(...)):
                         )
                         cot_trace_depth = 2
                         width = 3
+                        params["num_epochs"] = max(1, int(params.get("num_epochs", 2)))
 
-                # 2. Seed Generation (Guiding Concepts)
-                # Generate distinct concepts to span the problem space
-                seed_chain = get_brainstorming_seed_chain(llm)
-                concepts_str = await seed_chain.ainvoke(
-                    {"problem": user_prompt, "num_concepts": width}
+                # --- QNN Step 2: Seed verbs + nouns (same spanning method as Algorithm Mode) ---
+                # Algorithm: seed_generation → pool of verbs → sample vector_word_size per column.
+                # Brainstorm: seed verbs AND nouns from problem space (+ far fields) → sample per column.
+                vector_word_size = max(
+                    2, int(params.get("vector_word_size", 6))
                 )
-                guiding_concepts = [
-                    c.strip() for c in concepts_str.split() if c.strip()
+                total_seed_words = max(
+                    vector_word_size * width, vector_word_size * 2
+                )
+                await log_stream.put(
+                    f"LOG: [QNN STEP 2] Generating {total_seed_words} seed verbs+nouns "
+                    f"(vector_word_size={vector_word_size}, width={width})..."
+                )
+                seed_chain = get_brainstorming_seed_chain(llm)
+                seeds_str = await seed_chain.ainvoke(
+                    {"problem": user_prompt, "word_count": total_seed_words}
+                )
+                all_seed_words = list(
+                    {
+                        w.strip()
+                        for w in seeds_str.replace(",", " ").split()
+                        if w.strip() and len(w.strip()) > 1
+                    }
+                )
+                # Fallback fillers if the LLM under-produces
+                fallback_words = [
+                    "distill",
+                    "reconverge",
+                    "entangle",
+                    "ownership",
+                    "latch",
+                    "invariant",
+                    "horizon",
+                    "entropy",
+                    "braid",
+                    "crystallize",
+                    "probe",
+                    "reframe",
                 ]
+                while len(all_seed_words) < total_seed_words:
+                    all_seed_words.append(
+                        fallback_words[len(all_seed_words) % len(fallback_words)]
+                    )
+                random.shuffle(all_seed_words)
 
-                # Ensure we have enough concepts
-                while len(guiding_concepts) < width:
-                    guiding_concepts.append("General_Analysis")
-                guiding_concepts = guiding_concepts[:width]
+                # One guiding word-vector per column (shared across layers, like algorithm MBTI seeds)
+                column_guiding_words = []
+                for j in range(width):
+                    if len(all_seed_words) >= vector_word_size:
+                        sample = random.sample(all_seed_words, vector_word_size)
+                    else:
+                        sample = list(all_seed_words)
+                    column_guiding_words.append(" ".join(sample))
 
                 await log_stream.put(
-                    f"LOG: Guiding Concepts: {', '.join(guiding_concepts)}"
+                    f"LOG: [QNN STEP 2] Seed pool ({len(all_seed_words)} words): "
+                    f"{' '.join(all_seed_words[: min(24, len(all_seed_words))])}"
+                    f"{'...' if len(all_seed_words) > 24 else ''}"
                 )
+                for j, gw in enumerate(column_guiding_words):
+                    await log_stream.put(
+                        f"LOG: [QNN STEP 2] Column {j} guiding_words: {gw}"
+                    )
 
-                # 3. Dynamic Spanning (Persona Generation)
+                # --- QNN Step 3: Span L×W personas from guiding_words (input-spanner style) ---
+                await log_stream.put(
+                    f"LOG: [QNN STEP 3] Spanning {cot_trace_depth}×{width} personas "
+                    f"from verb/noun word-vectors..."
+                )
                 spanner_chain = get_brainstorming_spanner_chain(llm)
 
                 for i in range(cot_trace_depth):
+                    layer_role = "DIVERGENT" if i == 0 else "CONVERGENT"
                     layer_prompts = []
                     layer_tasks = []
                     for j in range(width):
@@ -2758,7 +2969,7 @@ async def build_and_run_graph(payload: dict = Body(...)):
                             spanner_chain.ainvoke(
                                 {
                                     "problem": user_prompt,
-                                    "guiding_concept": guiding_concepts[j],
+                                    "guiding_words": column_guiding_words[j],
                                     "layer_index": i,
                                     "node_index": j,
                                     "document_context": brainstorm_problem_summary,
@@ -2770,38 +2981,87 @@ async def build_and_run_graph(payload: dict = Body(...)):
 
                     for j, p_str in enumerate(personas_raw):
                         agent_id = f"agent_{i}_{j}"
+                        gw = column_guiding_words[j]
                         try:
                             persona = clean_and_parse_json(p_str)
-                        except:
+                            if not isinstance(persona, dict):
+                                raise ValueError("persona not a dict")
+                        except Exception:
                             persona = {
                                 "name": f"Expert {i}-{j}",
-                                "specialty": f"{guiding_concepts[j]} Specialist",
+                                "specialty": f"Specialist shaped by {gw}",
                                 "emoji": "🧠",
-                                "system_prompt": f"You are an expert in {guiding_concepts[j]}. Analyze the topic: {user_prompt}.",
+                                "guiding_words": gw,
+                                "attributes": gw.split(),
+                                "skills": ["problem-space spanning", "strategic mapping"],
+                                "system_prompt": (
+                                    f"You are a {layer_role} QNN node. Your cognition is shaped by "
+                                    f"these guiding words: {gw}. Specialize for: {user_prompt}. "
+                                    "Map strategies with mechanisms and falsifiers; no production patches."
+                                ),
                             }
+
+                        attrs = persona.get("attributes") or []
+                        if isinstance(attrs, list):
+                            attrs_block = "\n".join(f"- {a}" for a in attrs[:12])
+                        else:
+                            attrs_block = str(attrs)
+                        skills = persona.get("skills") or []
+                        if isinstance(skills, list):
+                            skills_block = "\n".join(f"* {s}" for s in skills[:6])
+                        else:
+                            skills_block = str(skills)
 
                         system_prompt = f"""
 You are {persona.get("name", "Expert")} {persona.get("emoji", "🧠")}.
 Your Specialty is: {persona.get("specialty", "Analysis")}.
+QNN cell: Layer {i} ({layer_role}), Node {j}.
+
+### Guiding Words (problem-space verb/noun vector)
+{gw}
+
+### Attributes
+{attrs_block or "- (derived from guiding words)"}
+
+### Skills
+{skills_block or "* strategic mapping"}
 
 <Role>
-{persona.get("system_prompt", "Analyze the input.")}
+{persona.get("system_prompt", "Analyze the input through your guiding words.")}
 </Role>
+
+<QNN Discipline>
+- You are a neuron in a layered Qualitative Neural Network, not a flat chat expert.
+- Your persona was spanned from problem-space verbs and nouns (same method as Algorithm Mode).
+- Layer 0: diverge. Deeper layers: critique/refine upstream (cite agent ids).
+- Do NOT write production patches or full file diffs.
+- Produce strategy angles with mechanisms, falsifiers, and risks.
+</QNN Discipline>
 """
                         layer_prompts.append(system_prompt)
 
-                        # Persist metadata
                         agent_personas[agent_id] = {
                             "name": persona.get("name", f"Agent {i}-{j}"),
                             "mbti_type": "Expert",
                             "specialty": persona.get("specialty", "Analysis"),
+                            "guiding_words": gw,
+                            "layer": i,
+                            "layer_role": layer_role,
                         }
                         decomposed_problems_map[agent_id] = user_prompt
 
                     all_layers_prompts.append(layer_prompts)
+                    await log_stream.put(
+                        f"LOG: [QNN STEP 3] Layer {i} ({layer_role}): {width} personas spanned."
+                    )
 
                 await log_stream.put(
-                    f"LOG: Successfully generated {len(all_layers_prompts) * width} unique expert personas."
+                    f"LOG: [QNN STEP 3] Expert panel ready: {cot_trace_depth}L × {width}W = "
+                    f"{cot_trace_depth * width} agents; epochs={params['num_epochs']}."
+                )
+                await log_stream.put(
+                    "LOG: [QNN STEP 4] Epoch loop starts with graph execution "
+                    "(layered forward → map → Mirror Descent → reframe)..."
                 )
 
             except Exception as e:
@@ -3047,9 +3307,14 @@ Your Specialty is: {persona.get("specialty", "Analysis")}.
     # Prepare brainstorm context (only relevant in brainstorm mode, but always include empty defaults)
     brainstorm_chat_history_str = ""
     brainstorm_document_context = ""
+    brainstorm_problem_summary_state = ""
     if mode == "brainstorm":
         brainstorm_chat_history_str = chat_history_str
         brainstorm_document_context = document_context
+        # Set during QNN Step 0 setup; fallback to prompt if setup path skipped it
+        brainstorm_problem_summary_state = (
+            locals().get("brainstorm_problem_summary") or user_prompt
+        )
 
     initial_state = {
         "session_id": session_id,
@@ -3079,9 +3344,10 @@ Your Specialty is: {persona.get("specialty", "Analysis")}.
         "modules": [],
         "synthesis_context_queue": [],
         "synthesis_execution_success": True,
-        # Brainstorm mode context
+        # Brainstorm / QNN mode context
         "brainstorm_prior_conversation": brainstorm_chat_history_str,
         "brainstorm_document_context": brainstorm_document_context,
+        "brainstorm_problem_summary": brainstorm_problem_summary_state,
     }
     initial_state["llm"] = llm
     sessions[session_id] = initial_state

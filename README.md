@@ -60,18 +60,25 @@ The most distinctive and high-leverage mode.
 
 This is not generic chat logs. This is **developmental trace data** explicitly designed for training the next generation of reasoning models — models that can internalize patterns of collaboration, critique, specialization, and progressive deepening.
 
-### 2. 🧠 Brainstorming Mode (Deep Conceptual Exploration)
+### 2. 🧠 Brainstorming Mode (Full QNN Expert Panel)
 
-A chat-first interface over the full QNN engine.
+A chat-first interface that runs the **same QNN deepthink algorithm** as the portable `/qnn` skill — not a flat static expert panel.
 
-- **Auto mode**: Complexity estimator recommends a small, efficient panel (typically 2–5 agents, 1–3 epochs).
-- **Manual / Massive mode**: You directly specify Layers × Width (e.g. 8×12, 20×20, or larger). No artificial caps. Spawn a genuine "army" when the problem justifies it.
-- Agents are dynamically generated expert personas (not generic "helpful assistant" variants).
-- Full multi-epoch Mirror Descent evolution of the expert panel.
-- Final synthesis represents the *evolved collective intelligence*, not a single round of debate.
-- Rich markdown chat interface for inspecting intermediate reflections.
+**Step-by-step each run:**
 
-Use this when you want deeper insight than a single model or a flat expert panel can deliver, without manually designing a full algorithm topology.
+0. **Brief** — Impasse/enrich summary from prompt + attachments  
+1. **Topology** — Auto (complexity → L×W×E) or Manual/Massive  
+2. **Seeds** — Verbs + nouns from the problem space (related + far semantic fields), sampled into per-column word-vectors — same spanning DNA as Algorithm Mode  
+3. **Personas** — Input-span careers/attributes/skills from those guiding_words (layer 0 diverge; deeper layers converge/critique)  
+4. **Epoch loop** — Layered forward pass → epoch map → Mirror Descent → harder reframe  
+5. **Solution-Space Report** — Divergent strategies with falsifiers and first probes (handoff to edit→run→debug)
+
+- **Auto mode**: Complexity estimator recommends a small topology (skill-aligned score bands).
+- **Manual / Massive mode**: Any Layers × Width; spawn a genuine "army" when justified.
+- Intermediate epochs produce compact **epoch maps**; the final epoch polishes the full report.
+- Rich markdown chat interface for the report and logs for each QNN step.
+
+Use this when you want deeper insight than a single model or a flat expert panel can deliver.
 
 ### 3. 🧬 Algorithm Design Mode (Maximum Control + Code Generation)
 
@@ -226,4 +233,4 @@ Not more agents. Better *becoming* agents.
 
 ---
 
-*Version 0.1.6 — See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the full history.*
+*Version 0.1.7 — See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the full history.*

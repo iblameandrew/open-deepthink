@@ -1,3 +1,39 @@
+# Release Notes — `0.1.7`
+
+**Tag:** `0.1.7`
+**Date:** 2026-07-09
+**Tagline:** "QNN skill + brainstorm panel: personas span from problem-space verbs and nouns (Algorithm Mode)"
+
+## ✨ Features
+
+### Skill rewrite — verb/noun problem-space spanning
+
+* **`skills/qnn/SKILL.md` rewritten** so personas are **not** flat expert labels.
+* **Same DNA as Algorithm Mode**: seed pool of linguistically loaded **verbs + nouns** (problem-related + far semantic fields) → sample per-column `guiding_words` word-vectors → input-span career / attributes / skills.
+* Anti-pattern documented: seeding as topic titles (`Security UX Performance`) is wrong; seed as word-vectors (`entangle latch ownership invariant …`).
+* Synced install notes and skills README.
+
+### Brainstorm expert panel = full QNN deepthink algorithm
+
+* Layered forward pass fixed (deeper layers receive upstream outputs; no more flatten-to-original-request).
+* Epoch maps on intermediate epochs; final **Solution-Space Report**.
+* Mirror Descent + harder thinking reframe between epochs (original request stays ground truth).
+* Brainstorm seed/spanner chains use verb/noun word-vectors like Algorithm Mode.
+* Algorithm `seed_generation` also mixes nouns with verbs.
+
+### Release asset
+
+* `qnn-skill-0.1.7.zip` — unzip into `~/.grok/skills/` for the corrected `/qnn` skill.
+
+### Files
+
+* `skills/qnn/SKILL.md`, `INSTALL.md`, `skills/README.md`
+* `deepthink/chains/brainstorm_chains.py`, `agent_chains.py`
+* `app.py`, `index.html`, `README.md`, tests
+* `deepthink/__init__.py` — `0.1.7`
+
+---
+
 # Release Notes — `0.1.6`
 
 **Tag:** `0.1.6`
