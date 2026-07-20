@@ -1,3 +1,34 @@
+# Release Notes — `0.1.9`
+
+**Tag:** `0.1.9`
+**Date:** 2026-07-20
+**Tagline:** "Portable /qdad skill — Qualitative Diffusion for Grok Build & any agentic coder"
+
+## ✨ Headline: `/qdad` portable skill
+
+Ship **Qualitative Diffusion** as an installable agent skill (same pattern as `/qnn`):
+
+* **`skills/qdad/SKILL.md`** — full technique analysis + step-by-step procedure
+  (foundation → grid → noise → denoise⟲ → synthesize → handoff)
+* **`skills/qdad/INSTALL.md`** — Grok Build / Windows / release-zip install
+* **`qdad-skill-0.1.9.zip`** — release asset (`qdad/SKILL.md` + `INSTALL.md`)
+* **`skills/package_skill.py`** packages **both** `qnn` and `qdad`
+* README: dual-skill install + when to use `/qdad` vs `/qnn`
+
+### Technique (skill embeds the analysis)
+
+Language = medium · nouns×verbs = orthogonal basis · high T = noise ·
+critics = reverse diffusion / score matching · vague vibe → App Build Prompt
+(Midjourney for apps).
+
+### Invoke
+
+```
+/qdad a cozy night writing app, soft dark mode, offline-first
+```
+
+---
+
 # Release Notes — `0.1.8`
 
 **Tag:** `0.1.8`

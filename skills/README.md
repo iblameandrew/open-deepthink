@@ -1,7 +1,7 @@
 # Portable Skills
 
 Agent-agnostic skill packages you can drop into any agentic coding harness
-(Grok, Claude Code, Cursor, Codex, custom runners, etc.).
+(Grok Build, Claude Code, Cursor, Codex, custom runners, etc.).
 
 These skills encode **procedures**, not host-specific APIs. Tool names in the
 body are examples — adapt them to your runtime.
@@ -10,7 +10,13 @@ body are examples — adapt them to your runtime.
 
 | Skill | Path | When to use |
 |-------|------|-------------|
-| **qnn** | [`qnn/SKILL.md`](./qnn/SKILL.md) | Sticky debug loops **or** features that need wider depth — personas spanned from problem-space **verbs + nouns** (Algorithm Mode method) |
+| **qnn** | [`qnn/SKILL.md`](./qnn/SKILL.md) | Sticky debug loops **or** features that need wider depth — layered strategy maps from problem-space **verbs + nouns** |
+| **qdad** | [`qdad/SKILL.md`](./qdad/SKILL.md) | Vague Midjourney-style **app vibe** → concrete **agentic coding prompt** via **Qualitative Diffusion** (noun×verb grid, noise, critic reverse diffusion, synthesize) |
+
+| Technique | Skill | Output |
+|-----------|-------|--------|
+| Qualitative Neural Network | `/qnn` | Solution-space / strategy map (then implement) |
+| Qualitative Diffusion | `/qdad` | App Build Prompt (then implement) |
 
 ## Quick import
 
@@ -19,84 +25,89 @@ body are examples — adapt them to your runtime.
 **Grok Build / Grok agent skills** (user scope, all projects):
 
 ```bash
-# Linux / macOS
-mkdir -p ~/.grok/skills/qnn
+# Linux / macOS — both skills
+mkdir -p ~/.grok/skills/qnn ~/.grok/skills/qdad
 cp skills/qnn/SKILL.md ~/.grok/skills/qnn/SKILL.md
+cp skills/qdad/SKILL.md ~/.grok/skills/qdad/SKILL.md
 
 # Windows (PowerShell)
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.grok\skills\qnn"
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.grok\skills\qdad"
 Copy-Item skills\qnn\SKILL.md "$env:USERPROFILE\.grok\skills\qnn\SKILL.md"
+Copy-Item skills\qdad\SKILL.md "$env:USERPROFILE\.grok\skills\qdad\SKILL.md"
 ```
 
 **Project scope** (share with a single repo):
 
 ```bash
-mkdir -p .grok/skills/qnn
+mkdir -p .grok/skills/qnn .grok/skills/qdad
 cp skills/qnn/SKILL.md .grok/skills/qnn/SKILL.md
+cp skills/qdad/SKILL.md .grok/skills/qdad/SKILL.md
 ```
 
 ### Option B — Install from a GitHub Release asset
 
-Download `qnn-skill-<version>.zip` from the
-[Releases](https://github.com/iblameandrew/open-deepthink/releases) page, unzip,
-and place the `qnn/` folder under your host’s skills root (e.g. `~/.grok/skills/`).
+Download `qnn-skill-*.zip` and/or `qdad-skill-*.zip` from
+[Releases](https://github.com/iblameandrew/open-deepthink/releases), unzip into
+your host’s skills root (e.g. `~/.grok/skills/`).
 
 ```bash
-# Example: latest release asset via gh
-gh release download --repo iblameandrew/open-deepthink --pattern "qnn-skill-*.zip"
+gh release download --repo iblameandrew/open-deepthink --pattern "*-skill-*.zip"
 unzip qnn-skill-*.zip -d ~/.grok/skills
+unzip qdad-skill-*.zip -d ~/.grok/skills
 ```
 
 ### Option C — Point the agent at the file
 
-Some harnesses accept an explicit skill path or system attachment:
-
 ```
-Read and follow: path/to/open-deepthink/skills/qnn/SKILL.md
+Read and follow: path/to/open-deepthink/skills/qdad/SKILL.md
 ```
 
-Or paste the skill when stuck:
+Invoke:
 
 ```
+/qdad a cozy night writing app, soft dark mode, offline-first
 /qnn explore this deadlock
 ```
 
 ## Verify
 
-After install, the skill should appear as `/qnn` (or via natural language
-triggers listed in the skill frontmatter). Invoke once on a dry-run problem to
-confirm the host loads frontmatter + body.
+After install, skills should appear as `/qnn` and `/qdad` (or via natural
+language triggers in each skill’s frontmatter).
 
 ## Packaging layout
 
 ```
 skills/
-  README.md                 # this file
+  README.md
+  package_skill.py
   qnn/
-    SKILL.md                # skill body (YAML frontmatter + procedure)
-    INSTALL.md              # one-page install for the qnn skill alone
+    SKILL.md
+    INSTALL.md
+  qdad/
+    SKILL.md
+    INSTALL.md
 ```
 
-A release asset is built as:
+Release assets:
 
 ```
-qnn-skill-<version>.zip
-  qnn/SKILL.md
-  qnn/INSTALL.md
+qnn-skill-<version>.zip   → qnn/SKILL.md, qnn/INSTALL.md
+qdad-skill-<version>.zip  → qdad/SKILL.md, qdad/INSTALL.md
 ```
 
-Rebuild with:
+Rebuild:
 
 ```bash
 python skills/package_skill.py
-# or: python skills/package_skill.py --version 0.1.6
+python skills/package_skill.py --skill qdad
+python skills/package_skill.py --version 0.1.9
 ```
 
 ## Philosophy
 
-- **QNN skill** = strategic depth when the local edit–run–debug (or design)
-  loop is thin or circling.
-- **Coding agent** = grounded implementation and verification after you pick a
-  direction from the solution-space map.
+- **`/qdad`** = design an app from a *vibe* (Qualitative Diffusion → build prompt).
+- **`/qnn`** = map *strategies* when stuck or when a feature needs depth.
+- **Coding agent** = grounded implementation after you pick a direction / brief.
 - Skills stay portable: no hard dependency on the open-deepthink server UI.
-  The full engine remains available in this repo for long evolutionary runs.
+  The full engine remains in this repo for long runs with logs and matrix persistence.

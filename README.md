@@ -9,11 +9,12 @@ Most agentic systems give you breadth through parallelism. open-deepthink gives 
 
 ---
 
-## 🎰 New in 0.1.8 — Qualitative Diffusion (App Slot Machine Mode)
+## 🎰 Qualitative Diffusion (QDAD) — New Technique
 
-**Diffusion, re-implemented at a purely qualitative scale.**
+**Diffusion, re-implemented at a purely qualitative scale.** Available as:
 
-Algorithm Design Mode is gone. In its place: **Qualitative Diffusion App Designer (QDAD)** — a new technique that treats *language* as the computational medium the way Midjourney treats pixels as the medium for images.
+1. **App Slot Machine Mode** in this app (full LangGraph engine + logs + matrix transparency)
+2. **Portable `/qdad` skill** for Grok Build and other agentic coders — no server required
 
 | Classical diffusion | Qualitative Diffusion (QDAD) |
 |---------------------|------------------------------|
@@ -38,7 +39,12 @@ Algorithm Design Mode is gone. In its place: **Qualitative Diffusion App Designe
 - Critic agents = qualitative reverse diffusion / score matching.
 - The whole process turns a vague aesthetic prompt into a concrete, buildable app specification — the same way Midjourney turns a vague prompt into an image.
 
-**Implementation:** LangGraph pipeline in `deepthink/qdad/` (`foundation → grid → noise → denoise⟲ → synthesize`), model-agnostic LLM calls, full feature-matrix transparency on every run. Frontend matches Brainstorming Mode; only the backend algorithm is different.
+**Why a grid (not a flat feature list)?** Features sit on a forced tensor product of basis directions. Exploration is *systematic*. Critics cannot change the signature of a cell — they score-match *along* that noun×verb chart. Synthesis is a separate decode step, not “pick the best idea.”
+
+| Run it… | Location |
+|---------|----------|
+| In-app | **App Slot Machine Mode** · `deepthink/qdad/` |
+| In Grok Build / any agent | [`skills/qdad/SKILL.md`](./skills/qdad/SKILL.md) · `/qdad` · release zip `qdad-skill-*.zip` |
 
 ---
 
@@ -215,34 +221,70 @@ This is why the distillation dataset + full topology archives are treated as fir
 
 ---
 
-## Portable `/qnn` Skill for Agentic Coders
+## Portable Skills for Agentic Coders (Grok Build, etc.)
 
-When a coding agent is **stuck** (deadlock, race, perf cliff, circular local fixes) or a **feature needs wider depth** (richer metrics, APIs, UX options), drop in the portable QNN skill instead of grinding more one-shot prompts.
+Drop these into `~/.grok/skills/` (or your host’s skills root). **No open-deepthink server required.**
+
+| Skill | Technique | Use when | Output |
+|-------|-----------|----------|--------|
+| **`/qdad`** | **Qualitative Diffusion** | Vague app / product *vibe* needs a full build brief | **App Build Prompt** (then implement) |
+| **`/qnn`** | Qualitative Neural Network | Sticky debug **or** thin feature needs strategy depth | **Solution-Space Report** (then implement) |
+
+### `/qdad` — Qualitative Diffusion (App Slot Machine in a skill)
+
+```
+/qdad a cozy productivity app for writers who work at night, soft dark mode, offline-first
+/qdad N=3 steps=2 — garden-like habit tracker
+```
+
+Runs the full QDAD procedure inside the host agent: foundation nouns/verbs → N×N grid → parallel noise → iterative critic reverse diffusion → synthesizer **App Build Prompt**. Then hand off to normal edit → run → test.
+
+| Artifact | Location |
+|----------|----------|
+| Skill body | [`skills/qdad/SKILL.md`](./skills/qdad/SKILL.md) |
+| Install | [`skills/qdad/INSTALL.md`](./skills/qdad/INSTALL.md) |
+| Release zip | `qdad-skill-<version>.zip` on [Releases](https://github.com/iblameandrew/open-deepthink/releases) |
+
+### `/qnn` — Qualitative Neural Network escape hatch
 
 ```
 /qnn explore this deadlock / performance regression
 /qnn richer metrics for the training dashboard
 ```
 
-The skill runs a structured Qualitative Neural Network procedure inside the host agent: guiding concepts → layered personas → multi-epoch forward passes → Mirror Descent persona evolution → harder reframes → a **Solution-Space Report**. The goal is not to ship the patch immediately — it is a map of divergent strategies with falsifiers and smallest first probes. You pick a direction and resume the grounded edit → run → debug loop.
+Layered personas, multi-epoch forward passes, Mirror Descent, harder reframes → strategy map with falsifiers (not an immediate production patch).
 
 | Artifact | Location |
 |----------|----------|
 | Skill body | [`skills/qnn/SKILL.md`](./skills/qnn/SKILL.md) |
-| Install notes | [`skills/qnn/INSTALL.md`](./skills/qnn/INSTALL.md) |
-| Skills index | [`skills/README.md`](./skills/README.md) |
-| Release zip | `qnn-skill-<version>.zip` on [GitHub Releases](https://github.com/iblameandrew/open-deepthink/releases) |
+| Install | [`skills/qnn/INSTALL.md`](./skills/qnn/INSTALL.md) |
+| Release zip | `qnn-skill-<version>.zip` on [Releases](https://github.com/iblameandrew/open-deepthink/releases) |
 
-**Install (Grok user skills):**
+### Install both (Grok Build user skills)
 
 ```bash
-mkdir -p ~/.grok/skills/qnn
+# Linux / macOS
+mkdir -p ~/.grok/skills/qnn ~/.grok/skills/qdad
 cp skills/qnn/SKILL.md ~/.grok/skills/qnn/SKILL.md
+cp skills/qdad/SKILL.md ~/.grok/skills/qdad/SKILL.md
+
+# Or from release assets
+gh release download --repo iblameandrew/open-deepthink --pattern "*-skill-*.zip"
+unzip qnn-skill-*.zip -d ~/.grok/skills
+unzip qdad-skill-*.zip -d ~/.grok/skills
 ```
 
-Or download the release asset and unzip into `~/.grok/skills/`. Works with any agent that can follow a skill file — tool names adapt to the host.
+Windows PowerShell:
 
-The full open-deepthink server remains the place for long evolutionary runs, export/import of trained QNNs, and distillation datasets. The portable skill is the lightweight escape hatch for day-to-day agentic coding.
+```powershell
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.grok\skills\qnn","$env:USERPROFILE\.grok\skills\qdad"
+Copy-Item skills\qnn\SKILL.md "$env:USERPROFILE\.grok\skills\qnn\SKILL.md"
+Copy-Item skills\qdad\SKILL.md "$env:USERPROFILE\.grok\skills\qdad\SKILL.md"
+```
+
+Full skills index: [`skills/README.md`](./skills/README.md).
+
+The full open-deepthink server remains the place for long evolutionary runs, App Slot Machine logs/matrices, export/import of trained QNNs, and distillation datasets. Portable skills are the lightweight escape hatches for day-to-day agentic coding.
 
 ---
 
