@@ -9,6 +9,39 @@ Most agentic systems give you breadth through parallelism. open-deepthink gives 
 
 ---
 
+## 🎰 New in 0.1.8 — Qualitative Diffusion (App Slot Machine Mode)
+
+**Diffusion, re-implemented at a purely qualitative scale.**
+
+Algorithm Design Mode is gone. In its place: **Qualitative Diffusion App Designer (QDAD)** — a new technique that treats *language* as the computational medium the way Midjourney treats pixels as the medium for images.
+
+| Classical diffusion | Qualitative Diffusion (QDAD) |
+|---------------------|------------------------------|
+| Continuous noise in latent space | **Controlled qualitative noise** at high temperature |
+| Denoising network | **Critic agents** (reverse diffusion / score matching in language) |
+| Pixel / embedding basis | **Nouns × verbs** as orthogonal basis directions |
+| Image from a vague prompt | **Buildable agentic coding prompt** from a vague aesthetic app prompt |
+
+**How it works**
+
+1. **Foundation** — From your Midjourney-style intent, sample **N nouns** and **N verbs** (shared qualitative basis).
+2. **Grid** — Build an **N×N** grid of FeatureAgents. Cell *(i, j)* is permanently bound to `nouns[i] × verbs[j]`.
+3. **Forward diffusion** — In parallel, each agent invents one wild, imperfect feature at **noise temperature**.
+4. **Reverse diffusion** — For each denoising step, CriticAgents with the *same* noun+verb signature clean, sharpen, and implementabilize the matrix.
+5. **Decode** — A Synthesizer collapses the clean matrix into a structured **# App Build Prompt** you can hand to Grok-Build, Cursor, Claude Artifacts, etc.
+
+**Philosophy (strict)**
+
+- Language is the computational medium.
+- Nouns and verbs act as orthogonal basis directions.
+- High temperature = controlled qualitative noise.
+- Critic agents = qualitative reverse diffusion / score matching.
+- The whole process turns a vague aesthetic prompt into a concrete, buildable app specification — the same way Midjourney turns a vague prompt into an image.
+
+**Implementation:** LangGraph pipeline in `deepthink/qdad/` (`foundation → grid → noise → denoise⟲ → synthesize`), model-agnostic LLM calls, full feature-matrix transparency on every run. Frontend matches Brainstorming Mode; only the backend algorithm is different.
+
+---
+
 ## The Core Problem with "Just Add More Agents"
 
 Typical multi-agent setups (including many "16 expert" or "army of agents" brainstorming interfaces) work like this:
@@ -68,7 +101,8 @@ A chat-first interface that runs the **same QNN deepthink algorithm** as the por
 
 0. **Brief** — Impasse/enrich summary from prompt + attachments  
 1. **Topology** — Auto (complexity → L×W×E) or Manual/Massive  
-2. **Seeds** — Verbs + nouns from the problem space (related + far semantic fields), sampled into per-column word-vectors — same spanning DNA as Algorithm Mode  
+2. **Seeds** — Verbs + nouns from the problem space (related + far semantic fields), sampled into per-column word-vectors — same spanning DNA as qualitative verb/noun bases  
+
 3. **Personas** — Input-span careers/attributes/skills from those guiding_words (layer 0 diverge; deeper layers converge/critique)  
 4. **Epoch loop** — Layered forward pass → epoch map → Mirror Descent → harder reframe  
 5. **Solution-Space Report** — Divergent strategies with falsifiers and first probes (handoff to edit→run→debug)
@@ -80,21 +114,26 @@ A chat-first interface that runs the **same QNN deepthink algorithm** as the por
 
 Use this when you want deeper insight than a single model or a flat expert panel can deliver.
 
-### 3. 🧬 Algorithm Design Mode (Maximum Control + Code Generation)
+### 3. 🎰 App Slot Machine Mode (Qualitative Diffusion App Designer)
 
-The original deep QNN mode for hard algorithmic and software problems.
+Replaces Algorithm Design Mode with **Qualitative Diffusion App Designer (QDAD)** — diffusion re-implemented at a purely qualitative scale.
 
-- Design arbitrary layer × width topologies.
-- Full hyperparameter control (prompt alignment, density, learning rate, vector word size, etc.).
-- Automatic problem decomposition into per-agent sub-problems.
-- Code-aware synthesis + real (restricted) Python sandbox execution.
-- Successful modules are documented as "module cards" and fed forward as context for future epochs.
-- Complete RAG (RAPTOR) indexing of every agent output across every epoch.
-- Post-run interactive chat directly into the network's memory ("what did agent_2_1 think about X?").
-- Final harvest produces structured research-style reports.
-- **Export / Import trained QNNs**: Save the entire evolved network (all layer prompts + state) as a compact JSON. Load it later and run new problems against the *already-evolved* specialists.
+**Philosophy:** language = computational medium · nouns/verbs = orthogonal basis · high T = controlled noise · critics = reverse diffusion / score matching · vague prompt → buildable app spec (Midjourney for apps).
 
-This is the mode for when you want to treat the QNN as a trainable, reusable reasoning artifact.
+| Layer | Path |
+|-------|------|
+| Package | `deepthink/qdad/` (`state`, `nodes`, `graph`, `pipeline`, `utils`) |
+| Chains | `deepthink/chains/qdad_chains.py` |
+| GUI | Same chat shell as Brainstorming + N / Temperature Scale / Denoising Steps / Noun-Verb T |
+| Graph | LangGraph: `foundation → grid → noise → denoise⟲ → synthesize` |
+
+- **Phase 0** — N nouns + N verbs (shared qualitative basis, noun/verb temperature)
+- **Phase 1** — N×N FeatureAgents permanently bound to `nouns[i] × verbs[j]`
+- **Phase 2** — Parallel forward diffusion (noise temperature)
+- **Phase 3** — Iterative reverse diffusion via CriticAgents (same signature)
+- **Phase 4** — Synthesizer → structured **agentic coding prompt** + transparent matrix
+
+Feed a Midjourney-style app prompt; hand the result to Grok-Build, Cursor, Claude Artifacts, etc.
 
 ---
 

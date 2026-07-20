@@ -698,8 +698,8 @@ button:disabled { opacity: 0.25; cursor: not-allowed; }
 }
 
 /* ── Mode containers ── */
-.brainstorm-container, .algorithm-container, .distillation-container { display: none; }
-.brainstorm-container.active, .algorithm-container.active, .distillation-container.active { display: block; }
+.brainstorm-container, .algorithm-container, .app-slot-machine-container, .distillation-container { display: none; }
+.brainstorm-container.active, .algorithm-container.active, .app-slot-machine-container.active, .distillation-container.active { display: block; }
 
 /* ── Legacy chat classes (unused but kept harmless) ── */
 .chat-messages, .brainstorm-chat { display: none; }

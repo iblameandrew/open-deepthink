@@ -57,7 +57,7 @@
     <!-- Mode Tabs -->
     <div class="container">
         <div class="mode-tabs">
-            <button class="mode-tab active" data-mode="algorithm">🧬 Algorithm Design Mode</button>
+            <button class="mode-tab active" data-mode="app_slot_machine">🎰 App Slot Machine Mode</button>
             <button class="mode-tab" data-mode="brainstorm">🧠 Brainstorming Mode</button>
             <button class="mode-tab" data-mode="distillation">⚗️ Knowledge Distillation</button>
         </div>
@@ -201,174 +201,99 @@
 
 
 
-    <!-- Algorithm Design Mode Container -->
-    <div class="algorithm-container hidden" id="algorithm-mode">
-        <div class="container">
-            <div id="qnn-import-container" class="section qnn-import-section">
-                <h2>Load a Pre-Trained QNN</h2>
-                <p>Import a previously exported QNN JSON file to continue training or run in inference-only
-                    mode.</p>
-                <form id="import-qnn-form">
-                    <label for="qnn-file-input">Select QNN File</label>
-                    <input type="file" id="qnn-file-input" accept=".json">
-                </form>
-                <div id="imported-qnn-info" class="hidden">
-                    <p><strong>File Loaded:</strong> <span id="loaded-filename"></span></p>
-                    <p>A QNN file has been loaded. You can modify the prompt below. Then, choose an execution
-                        mode:</p>
-                    <div id="inference-options">
-                        <button id="inference-continue-training-btn" hidden>Continue Training</button>
-                        <button id="inference-only-btn">Run Inference Only</button>
-                    </div>
+        <!-- App Slot Machine Mode Container (same frontend shell as Brainstorming) -->
+    <div class="container app-slot-machine-container hidden" id="app-slot-machine-mode">
+        <div class="section">
+            <div class="app-control-row" style="flex-wrap: wrap; gap: 1rem;">
+                <div class="app-control-group">
+                    <label for="qdad_grid_size">N (Grid Size)</label>
+                    <input type="number" id="qdad_grid_size" class="app-input--compact app-input--narrow"
+                        value="4" min="2" max="8" step="1" title="Creates an N×N grid of feature agents">
+                </div>
+                <div class="app-control-group">
+                    <label for="qdad_temperature_scale">Temperature Scale</label>
+                    <input type="number" id="qdad_temperature_scale" class="app-input--compact app-input--medium"
+                        value="1.3" min="0.7" max="1.8" step="0.1" title="Noise temperature for feature agents">
+                </div>
+                <div class="app-control-group">
+                    <label for="qdad_denoising_steps">Denoising Steps</label>
+                    <input type="number" id="qdad_denoising_steps" class="app-input--compact app-input--narrow"
+                        value="3" min="1" max="6" step="1" title="Critique / refinement rounds">
+                </div>
+                <div class="app-control-group">
+                    <label for="qdad_noun_verb_temp">Noun/Verb Temperature</label>
+                    <input type="number" id="qdad_noun_verb_temp" class="app-input--compact app-input--medium"
+                        value="0.6" min="0.3" max="1.0" step="0.1" title="Temperature for shared noun/verb basis">
+                </div>
+                <div class="app-control-group">
+                    <input type="checkbox" id="qdad_debug_mode">
+                    <label for="qdad_debug_mode">🚀 Simulation Mode (Mock LLM — No Cost)</label>
                 </div>
             </div>
 
-            <div id="graph-architecture" class="section">
-                <h2>Graph Architecture</h2>
-                <form id="graph-params-form">
-                    <div id="debug-options" class="app-control-row" style="margin-top: 0.5rem;">
-                        <div class="mbti-option">
-                            <input type="checkbox" id="coder_debug_mode" name="coder_debug_mode" value="true">
-                            <label for="coder_debug_mode">💻 Enable Coder Debug (Code)</label>
-                        </div>
-                    </div>
+            <div class="app-subpanel" style="margin-top: 0.75rem;">
+                <div class="app-subpanel__title">Qualitative Diffusion App Designer (QDAD)</div>
+                <p class="app-hint" style="margin: 0;">
+                    Language is the computational medium. Nouns &amp; verbs = orthogonal basis.
+                    High temperature = controlled qualitative noise. Critics = reverse diffusion / score matching.
+                    Vague Midjourney-style prompt → concrete agentic coding prompt — the way Midjourney turns a prompt into an image.
+                </p>
+            </div>
 
-                    <div class="topology-controls">
-                        <div class="app-subpanel__title">QNN Dimensions (unlimited)</div>
-                        <label for="cot_trace_depth">CoT trace depth (layers / height)</label>
-                        <input type="number" id="cot_trace_depth" name="cot_trace_depth" value="2" min="1" required>
+            <div class="mem-calc-panel" id="qdad-mem-calc"
+                data-watch="qdad_grid_size,qdad_denoising_steps,qdad-ram-gb">
+                <div class="app-hint" style="margin-bottom: 0.5rem;">
+                    Laptop RAM:
+                    <input type="number" id="qdad-ram-gb" class="mem-calc-ram-input" value="8" min="1" max="256" step="1"> GB
+                </div>
+            </div>
 
-                        <div class="app-subpanel__title" style="margin-top: 0.75rem;">Width (agents per layer)</div>
-                        <div class="app-radio-group" style="margin-bottom: 0.5rem;">
-                            <label class="app-radio-label">
-                                <input type="radio" name="algorithm_width_mode" value="mbti" checked id="algo_width_mbti">
-                                <span>From MBTI selection (below)</span>
-                            </label>
-                            <label class="app-radio-label app-radio-label--warn">
-                                <input type="radio" name="algorithm_width_mode" value="manual" id="algo_width_manual">
-                                <span>Manual width (unlimited)</span>
-                            </label>
-                        </div>
-                        <div id="algo-manual-width-control" class="hidden">
-                            <label for="algorithm_manual_width" class="app-hint">Agents per layer:
-                                <input type="number" id="algorithm_manual_width" name="algorithm_manual_width" class="app-input--compact app-input--medium" value="16" min="1" step="1">
-                            </label>
-                            <span class="app-hint" style="display: block; margin-top: 0.35rem;">MBTI archetypes cycle when width exceeds selection count.</span>
-                        </div>
-                    </div>
-
-                    <div class="mem-calc-panel" id="algorithm-mem-calc"
-                        data-watch="cot_trace_depth,algorithm_manual_width,num_epochs,algorithm-ram-gb">
-                        <div class="app-hint" style="margin-bottom: 0.5rem;">
-                            Laptop RAM:
-                            <input type="number" id="algorithm-ram-gb" class="mem-calc-ram-input" value="8" min="1" max="256" step="1"> GB
-                        </div>
-                    </div>
-
-                    <label for="num_epochs">Number of epochs:</label>
-                    <input type="number" id="num_epochs" name="num_epochs" value="1" required>
-                    <label for="vector_word_size">Vector word size (Number of verbs per agent):</label>
-                    <input type="number" id="vector_word_size" name="vector_word_size" value="2" min="2" max="20"
-                        required>
-                    <label for="prompt_alignment">Prompt alignment (0.1-2.0):</label>
-                    <input type="number" id="prompt_alignment" name="prompt_alignment" step="0.1" min="0.1" max="2.0"
-                        value="1.0" required>
-                    <label for="density">Density (0.1-2.0):</label>
-                    <input type="number" id="density" name="density" step="0.1" min="0.1" max="2.0" value="1.0"
-                        required>
-                    <label for="learning_rate">Learning rate (0.1-2.0):</label>
-                    <input type="number" id="learning_rate" name="learning_rate" step="0.1" min="0.1" max="2.0"
-                        value="0.1" required>
-                    <label>MBTI Archetypes (select at least 2):</label>
-                    <div class="mbti-grid">
-                        <div class="mbti-option"><input type="checkbox" id="mbti-istj" name="mbti_archetypes"
-                                value="ISTJ" checked><label for="mbti-istj">ISTJ (Inspector)</label></div>
-                        <div class="mbti-option"><input type="checkbox" id="mbti-isfj" name="mbti_archetypes"
-                                value="ISFJ" checked><label for="mbti-isfj">ISFJ (Protector)</label></div>
-                        <div class="mbti-option"><input type="checkbox" id="mbti-infj" name="mbti_archetypes"
-                                value="INFJ"><label for="mbti-infj">INFJ (Advocate)</label></div>
-                        <div class="mbti-option"><input type="checkbox" id="mbti-intj" name="mbti_archetypes"
-                                value="INTJ"><label for="mbti-intj">INTJ (Architect)</label></div>
-                        <div class="mbti-option"><input type="checkbox" id="mbti-istp" name="mbti_archetypes"
-                                value="ISTP"><label for="mbti-istp">ISTP (Virtuoso)</label></div>
-                        <div class="mbti-option"><input type="checkbox" id="mbti-isfp" name="mbti_archetypes"
-                                value="ISFP"><label for="mbti-isfp">ISFP (Adventurer)</label></div>
-                        <div class="mbti-option"><input type="checkbox" id="mbti-infp" name="mbti_archetypes"
-                                value="INFP"><label for="mbti-infp">INFP (Mediator)</label></div>
-                        <div class="mbti-option"><input type="checkbox" id="mbti-intp" name="mbti_archetypes"
-                                value="INTP"><label for="mbti-intp">INTP (Logician)</label></div>
-                        <div class="mbti-option"><input type="checkbox" id="mbti-estp" name="mbti_archetypes"
-                                value="ESTP"><label for="mbti-estp">ESTP (Entrepreneur)</label></div>
-                        <div class="mbti-option"><input type="checkbox" id="mbti-esfp" name="mbti_archetypes"
-                                value="ESFP"><label for="mbti-esfp">ESFP (Entertainer)</label></div>
-                        <div class="mbti-option"><input type="checkbox" id="mbti-enfp" name="mbti_archetypes"
-                                value="ENFP"><label for="mbti-enfp">ENFP (Campaigner)</label></div>
-                        <div class="mbti-option"><input type="checkbox" id="mbti-entp" name="mbti_archetypes"
-                                value="ENTP"><label for="mbti-entp">ENTP (Debater)</label></div>
-                        <div class="mbti-option"><input type="checkbox" id="mbti-estj" name="mbti_archetypes"
-                                value="ESTJ"><label for="mbti-estj">ESTJ (Executive)</label></div>
-                        <div class="mbti-option"><input type="checkbox" id="mbti-esfj" name="mbti_archetypes"
-                                value="ESFJ"><label for="mbti-esfj">ESFJ (Consul)</label></div>
-                        <div class="mbti-option"><input type="checkbox" id="mbti-enfj" name="mbti_archetypes"
-                                value="ENFJ"><label for="mbti-enfj">ENFJ (Protagonist)</label></div>
-                        <div class="mbti-option"><input type="checkbox" id="mbti-entj" name="mbti_archetypes"
-                                value="ENTJ"><label for="mbti-entj">ENTJ (Commander)</label></div>
-                    </div>
-                    <div id="algorithm-attachments-section" class="app-attachments">
-                        <div class="app-attachments__row">
-                            <label for="algorithm-code-file-input" class="app-file-label">💻 Attach Code</label>
-                            <input type="file" id="algorithm-code-file-input"
-                                accept=".py,.js,.ts,.jsx,.tsx,.java,.c,.cpp,.h,.hpp,.go,.rs,.rb,.php,.sh,.bash,.sql,.html,.css,.json,.yaml,.yml,.toml,.md,.txt,.xml,.vue,.svelte,.kt,.swift,.r,.scala,.lua,.pl,.zig,.cs,.m,.mm,.ipynb"
-                                multiple style="display: none;">
-                            <label for="algorithm-repo-folder-input" class="app-file-label">📁 Attach Repository</label>
-                            <input type="file" id="algorithm-repo-folder-input" webkitdirectory directory multiple style="display: none;">
-                            <span id="algorithm-attachment-status" class="app-status"></span>
-                            <button type="button" id="clear-algorithm-attachments-btn" class="app-btn--ghost hidden">Clear All</button>
-                        </div>
-                        <div id="algorithm-attached-files-list" class="hidden" style="margin-top: 0.75rem;">
-                            <div class="app-hint" style="margin-bottom: 0.4rem;">Attached Code Files</div>
-                            <div id="algorithm-files-list" style="display: flex; flex-wrap: wrap; gap: 0.5rem;"></div>
-                        </div>
-                    </div>
-                    <label for="prompt">Prompt:</label>
-                    <textarea id="prompt" name="prompt" required>
-
-
-                    Current diffusers and transformer architectures use integral samplers or differential solvers in the case of diffusers, and decoding algorithms which account as integral, in the case of transformers, to run inference. I presume the foundation of training and architecture are allready figured out, so i want you to create a new inference algorithm that helps exsiting architectures acheive AGI. For this conceptualziation assume the world is full of spinning wheels (harmonic oscillators), like we see them in atoms, solar systems, galaxies, human hierarchies...etc, and data represents a measured state of the "wheel" at a given time. Abudant training data samples the full state of the "wheel" by offering all the posible data of the wheel full state. This is where understanding is reached: by spinning the whole wheel and assimilating all possible perspectives. Current inference algoritms on the other hand, are not fully decoding the internal "implicit wheels" abstracted into the weights after training, as their responses can be shallow. The training algorithms encode the wheels but inference algorithms do not extract them very well. I want you to make in python with excellent documentation: 1. An inference algorithm to achieve AGI through better inference using a PID like approach with perturbative feedback. Instead of just using either an integrative or differential component, i want you to implement both with proportional weighting terms. Figure out a good way to integrate PID loops into transformer inference so transformers learn on inference. 2. a gradio app to monitor the algorithm during an inference run on a mocked transformer which should be built to be sufficiently dense to provide realistic output/input.
-
-
-                </textarea>
-                    <button type="submit" id="run-button" class="flux-btn flux-btn--primary" style="width: 100%;">Build and Run Graph</button>
-                </form>
+            <div id="qdad-attachments-section" class="app-attachments">
+                <div class="app-attachments__row">
+                    <label for="qdad-pdf-file-input" class="app-file-label">📄 Attach PDFs</label>
+                    <input type="file" id="qdad-pdf-file-input" accept=".pdf" multiple style="display: none;">
+                    <label for="qdad-code-file-input" class="app-file-label">💻 Attach Code</label>
+                    <input type="file" id="qdad-code-file-input"
+                        accept=".py,.js,.ts,.jsx,.tsx,.java,.c,.cpp,.h,.hpp,.go,.rs,.rb,.php,.sh,.bash,.sql,.html,.css,.json,.yaml,.yml,.toml,.md,.txt,.xml,.vue,.svelte,.kt,.swift,.r,.scala,.lua,.pl,.zig,.cs,.m,.mm,.ipynb"
+                        multiple style="display: none;">
+                    <label for="qdad-repo-folder-input" class="app-file-label">📁 Attach Repository</label>
+                    <input type="file" id="qdad-repo-folder-input" webkitdirectory directory multiple style="display: none;">
+                    <span id="qdad-attachment-status" class="app-status"></span>
+                    <button type="button" id="clear-qdad-attachments-btn" class="app-btn--ghost hidden">Clear All</button>
+                </div>
+                <div id="qdad-attached-files-list" class="hidden" style="margin-top: 0.75rem;">
+                    <div class="app-hint" style="margin-bottom: 0.4rem;">Attached Files</div>
+                    <div id="qdad-files-list" style="display: flex; flex-wrap: wrap; gap: 0.5rem;"></div>
+                </div>
             </div>
         </div>
 
-        <div class="container section--chat-mount" id="diagnostic-chat-wrapper">
-            <div id="diagnostic-node-chat-container" style="height: 600px;"></div>
+        <div class="section section--chat-mount">
+            <div id="qdad-node-chat-container" style="height: 550px;"></div>
         </div>
 
-
-
-
-
-        <div class="container hidden" id="code-result-container">
-            <h2>Generated Code</h2>
-            <p>The graph execution is complete. The following code has been generated based on your request.</p>
+        <!-- Kept for export / legacy SSE handlers (hidden shell) -->
+        <div id="qnn-import-container" class="hidden"></div>
+        <div id="graph-architecture" class="hidden"></div>
+        <form id="graph-params-form" class="hidden"></form>
+        <button type="button" id="run-button" class="hidden"></button>
+        <div id="diagnostic-chat-wrapper" class="hidden">
+            <div id="diagnostic-node-chat-container"></div>
+        </div>
+        <div class="hidden" id="code-result-container">
             <pre><code id="code-output" class="language-python"></code></pre>
-            <h3>Reasoning:</h3>
-            <p id="code-reasoning" style="white-space: pre-wrap;"></p>
+            <p id="code-reasoning"></p>
         </div>
-
-        <div class="container hidden" id="modules-container">
-            <h2>Successfully Built Modules</h2>
-            <p>The following modules were successfully synthesized and executed during the run.</p>
-            <div id="modules-output"></div>
+        <div class="hidden" id="modules-container"><div id="modules-output"></div></div>
+        <button id="export-qnn-button" class="app-btn--secondary hidden">Export Session</button>
+        <input type="file" id="qnn-file-input" class="hidden" accept=".json">
+        <div id="imported-qnn-info" class="hidden">
+            <span id="loaded-filename"></span>
+            <button id="inference-continue-training-btn" hidden></button>
+            <button id="inference-only-btn" class="hidden"></button>
         </div>
-
-        <button id="export-qnn-button" class="app-btn--secondary hidden">Export QNN</button>
     </div>
-    </div>
-    <!-- End Algorithm Design Mode Container -->
+    <!-- End App Slot Machine Mode Container -->
 
     <!-- Shared Visualization Containers -->
     <div class="container" id="perplexity-chart-container">
@@ -579,20 +504,13 @@
 
                 // Re-fetch elements to be safe
                 const bs = document.getElementById('brainstorm-mode');
-                const algo = document.getElementById('algorithm-mode');
+                const slot = document.getElementById('app-slot-machine-mode');
                 const distil = document.getElementById('distillation-mode');
 
                 const mode = tab.dataset.mode;
 
-                if (bs) {
-                    bs.classList.add('hidden');
-                    bs.classList.remove('active');
-                }
-                if (algo) algo.classList.add('hidden');
-                if (distil) distil.classList.add('hidden');
-
                 // Update Containers
-                [bs, algo, distil].forEach(c => {
+                [bs, slot, distil].forEach(c => {
                     if (c) {
                         c.classList.add('hidden');
                         c.classList.remove('active');
@@ -604,10 +522,10 @@
                         bs.classList.remove('hidden');
                         bs.classList.add('active');
                     }
-                } else if (mode === 'algorithm') {
-                    if (algo) {
-                        algo.classList.remove('hidden');
-                        algo.classList.add('active');
+                } else if (mode === 'app_slot_machine') {
+                    if (slot) {
+                        slot.classList.remove('hidden');
+                        slot.classList.add('active');
                     }
                 } else if (mode === 'distillation') {
                     if (distil) {
@@ -620,11 +538,7 @@
                 const globalLogComp = document.getElementById('log-wrapper');
                 const globalGraphComp = document.getElementById('graph-wrapper');
 
-                if (mode === 'brainstorm') {
-                    if (globalPerplexity) globalPerplexity.classList.remove('hidden');
-                    if (globalLogComp) globalLogComp.classList.remove('hidden');
-                    if (globalGraphComp) globalGraphComp.classList.remove('hidden');
-                } else if (mode === 'algorithm') {
+                if (mode === 'brainstorm' || mode === 'app_slot_machine') {
                     if (globalPerplexity) globalPerplexity.classList.remove('hidden');
                     if (globalLogComp) globalLogComp.classList.remove('hidden');
                     if (globalGraphComp) globalGraphComp.classList.remove('hidden');
@@ -879,9 +793,13 @@
         let attachedDocuments = [];  // PDFs: {filename, text, char_count, type: 'pdf'}
         let attachedCodeFiles = [];  // Code: {filename, text, char_count, extension, type: 'code'}
         let attachedRepositories = [];  // Repos: {repo_name, files, char_count, file_count, type: 'repo'}
-        let algorithmCodeFiles = [];  // Algorithm mode code attachments
-        let algorithmRepositories = [];  // Algorithm mode repository attachments
-        let nodeChatInstance = null;  // NodeChat component instance
+        let qdadDocuments = [];
+        let qdadCodeFiles = [];
+        let qdadRepositories = [];
+        let qdadDocumentContext = '';
+        let qdadChatHistory = [];
+        let nodeChatInstance = null;  // Brainstorm NodeChat
+        let qdadChatInstance = null;  // App Slot Machine NodeChat
 
         function formatRepoContext(repo) {
             return repo.files.map(f =>
@@ -898,12 +816,14 @@
             brainstormDocumentContext = [...pdfParts, ...codeParts, ...repoParts].join('\n\n---\n\n');
         }
 
-        function rebuildAlgorithmContext() {
-            const codeParts = algorithmCodeFiles.map(f =>
+        function rebuildQdadContext() {
+            const pdfParts = qdadDocuments.map(d => `[Document: ${d.filename}]\n${d.text}`);
+            const codeParts = qdadCodeFiles.map(f =>
                 `[Code File: ${f.filename}]\n\`\`\`${f.extension || ''}\n${f.text}\n\`\`\``
             );
-            const repoParts = algorithmRepositories.map(formatRepoContext);
-            return [...codeParts, ...repoParts].join('\n\n---\n\n');
+            const repoParts = qdadRepositories.map(formatRepoContext);
+            qdadDocumentContext = [...pdfParts, ...codeParts, ...repoParts].join('\n\n---\n\n');
+            return qdadDocumentContext;
         }
 
         function renderAttachmentBadges(container, items) {
@@ -973,12 +893,31 @@
         const attachedFilesList = document.getElementById('attached-files-list');
         const filesList = document.getElementById('files-list');
 
-        const algorithmCodeFileInput = document.getElementById('algorithm-code-file-input');
-        const algorithmRepoFolderInput = document.getElementById('algorithm-repo-folder-input');
-        const algorithmAttachmentStatus = document.getElementById('algorithm-attachment-status');
-        const clearAlgorithmAttachmentsBtn = document.getElementById('clear-algorithm-attachments-btn');
-        const algorithmAttachedFilesList = document.getElementById('algorithm-attached-files-list');
-        const algorithmFilesList = document.getElementById('algorithm-files-list');
+        const qdadPdfFileInput = document.getElementById('qdad-pdf-file-input');
+        const qdadCodeFileInput = document.getElementById('qdad-code-file-input');
+        const qdadRepoFolderInput = document.getElementById('qdad-repo-folder-input');
+        const qdadAttachmentStatus = document.getElementById('qdad-attachment-status');
+        const clearQdadAttachmentsBtn = document.getElementById('clear-qdad-attachments-btn');
+        const qdadAttachedFilesList = document.getElementById('qdad-attached-files-list');
+        const qdadFilesList = document.getElementById('qdad-files-list');
+
+        function updateQdadAttachmentUI(addedCount, statusMessage) {
+            const allItems = [...qdadDocuments, ...qdadCodeFiles, ...qdadRepositories];
+            const totalChars = allItems.reduce((sum, item) => sum + item.char_count, 0);
+            if (statusMessage) {
+                qdadAttachmentStatus.textContent = statusMessage;
+                setAppStatus(qdadAttachmentStatus, 'success');
+            } else if (addedCount > 0) {
+                qdadAttachmentStatus.textContent = `✓ Added ${addedCount} new file(s). Total: ${allItems.length} (${totalChars} chars)`;
+                setAppStatus(qdadAttachmentStatus, 'success');
+            } else if (allItems.length > 0) {
+                qdadAttachmentStatus.textContent = `⚠ Files already attached. Total: ${allItems.length}`;
+                setAppStatus(qdadAttachmentStatus, 'warn');
+            }
+            renderAttachmentBadges(qdadFilesList, allItems);
+            toggleHidden(qdadAttachedFilesList, allItems.length > 0);
+            toggleHidden(clearQdadAttachmentsBtn, allItems.length > 0);
+        }
 
         function updateBrainstormAttachmentUI(addedCount, statusMessage) {
             const allItems = [...attachedDocuments, ...attachedCodeFiles, ...attachedRepositories];
@@ -1097,97 +1036,98 @@
             setAppStatus(attachmentUploadStatus, null);
         });
 
-        algorithmCodeFileInput.addEventListener('change', async (e) => {
+        if (qdadPdfFileInput) qdadPdfFileInput.addEventListener('change', async (e) => {
             const files = e.target.files;
             if (!files.length) return;
+            qdadAttachmentStatus.textContent = 'Uploading PDFs...';
+            setAppStatus(qdadAttachmentStatus, null);
+            try {
+                const newDocs = await uploadAttachments(files, '/upload_documents', 'documents');
+                let addedCount = 0;
+                newDocs.forEach(doc => {
+                    if (!qdadDocuments.some(existing => existing.filename === doc.filename)) {
+                        qdadDocuments.push({ ...doc, type: 'pdf' });
+                        addedCount++;
+                    }
+                });
+                rebuildQdadContext();
+                updateQdadAttachmentUI(addedCount);
+            } catch (error) {
+                qdadAttachmentStatus.textContent = `Error: ${error.message}`;
+                setAppStatus(qdadAttachmentStatus, 'error');
+            }
+            qdadPdfFileInput.value = '';
+        });
 
-            algorithmAttachmentStatus.textContent = 'Uploading code files...';
-            setAppStatus(algorithmAttachmentStatus, null);
-
+        if (qdadCodeFileInput) qdadCodeFileInput.addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (!files.length) return;
+            qdadAttachmentStatus.textContent = 'Uploading code files...';
+            setAppStatus(qdadAttachmentStatus, null);
             try {
                 const newFiles = await uploadAttachments(files, '/upload_code_files', 'files');
                 let addedCount = 0;
                 newFiles.forEach(file => {
-                    if (!algorithmCodeFiles.some(existing => existing.filename === file.filename)) {
-                        algorithmCodeFiles.push({ ...file, type: 'code' });
+                    if (!qdadCodeFiles.some(existing => existing.filename === file.filename)) {
+                        qdadCodeFiles.push({ ...file, type: 'code' });
                         addedCount++;
                     }
                 });
-
-                const allItems = [...algorithmCodeFiles, ...algorithmRepositories];
-                const totalChars = allItems.reduce((sum, item) => sum + item.char_count, 0);
-                if (addedCount > 0) {
-                    algorithmAttachmentStatus.textContent = `✓ Added ${addedCount} file(s). Total: ${allItems.length} (${totalChars} chars)`;
-                    setAppStatus(algorithmAttachmentStatus, 'success');
-                } else {
-                    algorithmAttachmentStatus.textContent = `⚠ Files already attached. Total: ${allItems.length}`;
-                    setAppStatus(algorithmAttachmentStatus, 'warn');
-                }
-
-                renderAttachmentBadges(algorithmFilesList, allItems);
-                toggleHidden(algorithmAttachedFilesList, allItems.length > 0);
-                toggleHidden(clearAlgorithmAttachmentsBtn, allItems.length > 0);
+                rebuildQdadContext();
+                updateQdadAttachmentUI(addedCount);
             } catch (error) {
-                algorithmAttachmentStatus.textContent = `Error: ${error.message}`;
-                setAppStatus(algorithmAttachmentStatus, 'error');
+                qdadAttachmentStatus.textContent = `Error: ${error.message}`;
+                setAppStatus(qdadAttachmentStatus, 'error');
             }
-
-            algorithmCodeFileInput.value = '';
+            qdadCodeFileInput.value = '';
         });
 
-        algorithmRepoFolderInput.addEventListener('change', async (e) => {
+        if (qdadRepoFolderInput) qdadRepoFolderInput.addEventListener('change', async (e) => {
             const files = e.target.files;
             if (!files.length) return;
-
-            algorithmAttachmentStatus.textContent = `Uploading repository (${files.length} files scanned)...`;
-            setAppStatus(algorithmAttachmentStatus, null);
-
+            qdadAttachmentStatus.textContent = `Uploading repository (${files.length} files scanned)...`;
+            setAppStatus(qdadAttachmentStatus, null);
             try {
                 const result = await uploadRepository(files);
                 const repoAttachment = buildRepoAttachment(result);
-                const alreadyAttached = algorithmRepositories.some(
+                const alreadyAttached = qdadRepositories.some(
                     existing => existing.repo_name === repoAttachment.repo_name
                 );
-
                 if (!alreadyAttached) {
-                    algorithmRepositories.push(repoAttachment);
-                }
-
-                const allItems = [...algorithmCodeFiles, ...algorithmRepositories];
-                const totalChars = allItems.reduce((sum, item) => sum + item.char_count, 0);
-
-                if (!alreadyAttached) {
-                    algorithmAttachmentStatus.textContent = `✓ Loaded repository "${repoAttachment.repo_name}" (${repoAttachment.file_count} files, ${repoAttachment.char_count} chars). Total: ${allItems.length} attachment(s)`;
-                    setAppStatus(algorithmAttachmentStatus, 'success');
+                    qdadRepositories.push(repoAttachment);
+                    rebuildQdadContext();
+                    updateQdadAttachmentUI(
+                        1,
+                        `✓ Loaded repository "${repoAttachment.repo_name}" (${repoAttachment.file_count} files, ${repoAttachment.char_count} chars)`
+                    );
                 } else {
-                    algorithmAttachmentStatus.textContent = `⚠ Repository "${repoAttachment.repo_name}" is already attached.`;
-                    setAppStatus(algorithmAttachmentStatus, 'warn');
+                    updateQdadAttachmentUI(0, `⚠ Repository "${repoAttachment.repo_name}" is already attached.`);
+                    setAppStatus(qdadAttachmentStatus, 'warn');
                 }
-
-                renderAttachmentBadges(algorithmFilesList, allItems);
-                toggleHidden(algorithmAttachedFilesList, allItems.length > 0);
-                toggleHidden(clearAlgorithmAttachmentsBtn, allItems.length > 0);
             } catch (error) {
-                algorithmAttachmentStatus.textContent = `Error: ${error.message}`;
-                setAppStatus(algorithmAttachmentStatus, 'error');
+                qdadAttachmentStatus.textContent = `Error: ${error.message}`;
+                setAppStatus(qdadAttachmentStatus, 'error');
             }
-
-            algorithmRepoFolderInput.value = '';
+            qdadRepoFolderInput.value = '';
         });
 
-        clearAlgorithmAttachmentsBtn.addEventListener('click', () => {
-            algorithmCodeFiles = [];
-            algorithmRepositories = [];
-            algorithmFilesList.innerHTML = '';
-            toggleHidden(algorithmAttachedFilesList, false);
-            toggleHidden(clearAlgorithmAttachmentsBtn, false);
-            algorithmAttachmentStatus.textContent = '';
-            setAppStatus(algorithmAttachmentStatus, null);
+        if (clearQdadAttachmentsBtn) clearQdadAttachmentsBtn.addEventListener('click', () => {
+            qdadDocumentContext = '';
+            qdadDocuments = [];
+            qdadCodeFiles = [];
+            qdadRepositories = [];
+            if (qdadFilesList) qdadFilesList.innerHTML = '';
+            toggleHidden(qdadAttachedFilesList, false);
+            toggleHidden(clearQdadAttachmentsBtn, false);
+            if (qdadAttachmentStatus) {
+                qdadAttachmentStatus.textContent = '';
+                setAppStatus(qdadAttachmentStatus, null);
+            }
         });
 
         // Mode switching and API key elements
         const modeTabs = document.querySelectorAll('.mode-tab');
-        const algorithmMode = document.getElementById('algorithm-mode');
+        const appSlotMachineMode = document.getElementById('app-slot-machine-mode');
         const brainstormMode = document.getElementById('brainstorm-mode');
         const saveApiKeyBtn = document.getElementById('save-api-key-btn');
         const apiKeyStatus = document.getElementById('api-key-status');
@@ -1272,10 +1212,10 @@
                 tab.classList.add('active');
                 const mode = tab.dataset.mode;
                 const bs = document.getElementById('brainstorm-mode');
-                const algo = document.getElementById('algorithm-mode');
+                const slot = document.getElementById('app-slot-machine-mode');
                 const distil = document.getElementById('distillation-mode');
 
-                [bs, algo, distil].forEach(c => {
+                [bs, slot, distil].forEach(c => {
                     if (c) {
                         c.classList.add('hidden');
                         c.classList.remove('active');
@@ -1284,8 +1224,8 @@
 
                 if (mode === 'brainstorm') {
                     if (bs) { bs.classList.remove('hidden'); bs.classList.add('active'); }
-                } else if (mode === 'algorithm') {
-                    if (algo) { algo.classList.remove('hidden'); algo.classList.add('active'); }
+                } else if (mode === 'app_slot_machine') {
+                    if (slot) { slot.classList.remove('hidden'); slot.classList.add('active'); }
                 } else if (mode === 'distillation') {
                     if (distil) { distil.classList.remove('hidden'); distil.classList.add('active'); }
                 }
@@ -1462,49 +1402,131 @@
                 };
             });
 
-            const algorithmMemCalc = QnnMemoryCalculator.init('algorithm-mem-calc', () => {
-                const widthMode = document.querySelector('input[name="algorithm_width_mode"]:checked')?.value || 'mbti';
-                const height = parseInt(document.getElementById('cot_trace_depth')?.value) || 1;
-                const width = widthMode === 'manual'
-                    ? (parseInt(document.getElementById('algorithm_manual_width')?.value) || 1)
-                    : Math.max(1, getMbtiCount());
-                const epochs = parseInt(document.getElementById('num_epochs')?.value) || 1;
-                const ramGb = parseFloat(document.getElementById('algorithm-ram-gb')?.value) || 8;
-                return {
-                    width,
-                    height,
-                    epochs,
-                    mode: 'algorithm',
-                    ramGb,
-                    isLocalModel: getProviderIsLocal(),
-                    widthLabel: 'Width',
-                    heightLabel: 'Depth',
-                };
-            });
-
-            document.querySelectorAll('input[name="mbti_archetypes"]').forEach((cb) => {
-                cb.addEventListener('change', () => algorithmMemCalc?.update());
-            });
-
-            const setupAlgorithmWidthToggle = () => {
-                const mbtiRadio = document.getElementById('algo_width_mbti');
-                const manualRadio = document.getElementById('algo_width_manual');
-                const manualControl = document.getElementById('algo-manual-width-control');
-                if (!mbtiRadio || !manualRadio || !manualControl) return;
-                const update = () => {
-                    toggleHidden(manualControl, manualRadio.checked);
-                    algorithmMemCalc?.update();
-                };
-                mbtiRadio.addEventListener('change', update);
-                manualRadio.addEventListener('change', update);
-                update();
-            };
-            setupAlgorithmWidthToggle();
-
             downloadLogButton.addEventListener('click', downloadLog);
 
 
 
+
+
+        // Initialize NodeChat for App Slot Machine (same frontend pattern as Brainstorm)
+        if (document.getElementById('qdad-node-chat-container')) {
+            qdadChatInstance = NodeChat.init('qdad-node-chat-container', {
+                title: 'App Slot Machine',
+                subtitle: 'QDAD — noun×verb basis · noise · reverse diffusion → buildable app prompt',
+                placeholder: 'e.g. a cozy productivity app for writers who work at night, soft dark mode, gentle notifications, offline-first',
+                onSend: async (message, chat) => {
+                    const provider = localStorage.getItem('llm_provider') || 'openrouter';
+                    const openrouterApiKey = localStorage.getItem('openrouter_api_key');
+                    const openrouterModel = localStorage.getItem('openrouter_model') || 'stepfun/step-3.5-flash:free';
+                    const llamacppUrl = localStorage.getItem('llamacpp_url') || 'http://localhost:8080/v1';
+                    const llamacppApiKey = 'no-key-required';
+                    const llamacppEmbeddingUrl = localStorage.getItem('llamacpp_embedding_url') || 'http://localhost:8080/v1';
+                    const synthesisModel = localStorage.getItem('synthesis_model') || '';
+                    const agentModels = localStorage.getItem('agent_models') || '';
+                    const llamacppModel = localStorage.getItem('llamacpp_model') || 'llama-3.2-1b-instruct';
+
+                    if (provider === 'openrouter' && !openrouterApiKey) {
+                        alert('Please save your OpenRouter API key in the settings panel first.');
+                        chat.finishStreaming();
+                        return;
+                    }
+
+                    qdadChatHistory = chat.getChatHistory();
+                    logContainer.innerHTML = '';
+                    fullLogContent = '';
+                    if (graphContainer && graphContainer.parentElement) {
+                        graphContainer.parentElement.style.display = 'none';
+                    }
+                    addLogMessage(`<strong>User:</strong> ${message}`, { isHTML: true, color: APP_COLORS.user });
+
+                    const params = {
+                        prompt: message,
+                        provider: provider,
+                        api_key: openrouterApiKey,
+                        openrouter_model: openrouterModel,
+                        llamacpp_url: llamacppUrl,
+                        llamacpp_api_key: llamacppApiKey,
+                        llamacpp_embedding_url: llamacppEmbeddingUrl,
+                        llamacpp_model: llamacppModel,
+                        synthesis_model: synthesisModel,
+                        agent_models: agentModels,
+                        grid_size: parseInt(document.getElementById('qdad_grid_size')?.value) || 4,
+                        n: parseInt(document.getElementById('qdad_grid_size')?.value) || 4,
+                        temperature_scale: parseFloat(document.getElementById('qdad_temperature_scale')?.value) || 1.3,
+                        denoising_steps: parseInt(document.getElementById('qdad_denoising_steps')?.value) || 3,
+                        noun_verb_temperature: parseFloat(document.getElementById('qdad_noun_verb_temp')?.value) || 0.6,
+                        coder_debug_mode: document.getElementById('qdad_debug_mode')?.checked ? 'true' : 'false',
+                        debug_mode: document.getElementById('qdad_debug_mode')?.checked ? 'true' : 'false',
+                    };
+
+                    try {
+                        await runGraph({
+                            params: params,
+                            mode: 'app_slot_machine',
+                            chat_history: qdadChatHistory,
+                            document_context: qdadDocumentContext
+                        }, '/build_and_run_graph', false);
+                    } catch (error) {
+                        addLogMessage(`Error initiating App Slot Machine: ${error.message}`, { color: 'red' });
+                        chat.removeThinking();
+                        chat.finishStreaming();
+                    }
+                },
+                onAttachCode: async (files) => {
+                    qdadAttachmentStatus.textContent = 'Uploading code files...';
+                    setAppStatus(qdadAttachmentStatus, null);
+                    const newFiles = await uploadAttachments(files, '/upload_code_files', 'files');
+                    let addedCount = 0;
+                    newFiles.forEach(file => {
+                        if (!qdadCodeFiles.some(existing => existing.filename === file.filename)) {
+                            qdadCodeFiles.push({ ...file, type: 'code' });
+                            addedCount++;
+                        }
+                    });
+                    rebuildQdadContext();
+                    updateQdadAttachmentUI(addedCount);
+                },
+                onAttachRepository: async (files) => {
+                    qdadAttachmentStatus.textContent = `Uploading repository (${files.length} files scanned)...`;
+                    setAppStatus(qdadAttachmentStatus, null);
+                    const result = await uploadRepository(files);
+                    const repoAttachment = buildRepoAttachment(result);
+                    const alreadyAttached = qdadRepositories.some(
+                        existing => existing.repo_name === repoAttachment.repo_name
+                    );
+                    if (!alreadyAttached) {
+                        qdadRepositories.push(repoAttachment);
+                        rebuildQdadContext();
+                        updateQdadAttachmentUI(
+                            1,
+                            `✓ Loaded repository "${repoAttachment.repo_name}" (${repoAttachment.file_count} files, ${repoAttachment.char_count} chars)`
+                        );
+                    } else {
+                        updateQdadAttachmentUI(0, `⚠ Repository "${repoAttachment.repo_name}" is already attached.`);
+                        setAppStatus(qdadAttachmentStatus, 'warn');
+                    }
+                },
+                onClear: () => {
+                    qdadChatHistory = [];
+                }
+            });
+
+            QnnMemoryCalculator.init('qdad-mem-calc', () => {
+                const n = parseInt(document.getElementById('qdad_grid_size')?.value) || 4;
+                const steps = parseInt(document.getElementById('qdad_denoising_steps')?.value) || 3;
+                const ramGb = parseFloat(document.getElementById('qdad-ram-gb')?.value) || 8;
+                return {
+                    width: n,
+                    height: n,
+                    epochs: steps,
+                    mode: 'brainstorm',
+                    ramGb,
+                    isLocalModel: (document.getElementById('llm-provider')?.value || 'openrouter') === 'llamacpp',
+                    widthLabel: 'Grid N',
+                    heightLabel: 'Grid N',
+                };
+            });
+        }
 
         } // End if node-chat-container exists
 
@@ -1569,19 +1591,23 @@
         }
 
         async function runGraph(payload, endpointUrl, clearLogs = true) {
-            runButton.disabled = true;
-            runButton.textContent = 'Processing...';
+            if (runButton) {
+                runButton.disabled = true;
+                runButton.textContent = 'Processing...';
+            }
             downloadLogButton.disabled = true;
             if (clearLogs) {
                 logContainer.innerHTML = '';
                 fullLogContent = '';
             }
-            graphContainer.innerHTML = '<p>ASCII graph will be displayed here after the process starts...</p>';
+            if (graphContainer) {
+                graphContainer.innerHTML = '<p>ASCII graph will be displayed here after the process starts...</p>';
+            }
 
-            codeResultContainer.classList.add('hidden');
-            modulesContainer.classList.add('hidden');
-            graphArchitectureSection.classList.add('hidden');
-            qnnImportContainer.classList.add('hidden');
+            if (codeResultContainer) codeResultContainer.classList.add('hidden');
+            if (modulesContainer) modulesContainer.classList.add('hidden');
+            if (graphArchitectureSection) graphArchitectureSection.classList.add('hidden');
+            if (qnnImportContainer) qnnImportContainer.classList.add('hidden');
 
             if (diagnosticChatInstance) {
                 diagnosticChatInstance.clearChat();
@@ -1677,76 +1703,24 @@
                     currentSessionId = result.session_id;
                 } else {
                     addLogMessage(`Error: Unexpected response from server: ${JSON.stringify(result)}`, { color: 'red' });
-                    graphArchitectureSection.classList.remove('hidden');
-                    qnnImportContainer.classList.remove('hidden');
+                    if (graphArchitectureSection) graphArchitectureSection.classList.remove('hidden');
+                    if (qnnImportContainer) qnnImportContainer.classList.remove('hidden');
                 }
             } catch (error) {
                 addLogMessage(`A client-side error occurred: ${error.message}`, { color: 'red' });
-                graphArchitectureSection.classList.remove('hidden');
-                qnnImportContainer.classList.remove('hidden');
+                if (graphArchitectureSection) graphArchitectureSection.classList.remove('hidden');
+                if (qnnImportContainer) qnnImportContainer.classList.remove('hidden');
             } finally {
 
             }
         }
 
-        graphParamsForm.addEventListener('submit', async (e) => {
+        if (graphParamsForm) graphParamsForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            // Ensure graph is visible
-            graphContainer.parentElement.style.display = 'block';
-
-            const formData = new FormData(graphParamsForm);
-            const params = {};
-            formData.forEach((value, key) => {
-                if (key === 'mbti_archetypes') {
-                    if (!params[key]) params[key] = [];
-                    params[key].push(value);
-                } else {
-                    params[key] = value;
-                }
-            });
-            if (!formData.has('coder_debug_mode')) params.coder_debug_mode = 'false';
-            if (!params.mbti_archetypes || params.mbti_archetypes.length < 2) {
-                alert('Please select at least 2 MBTI archetypes.');
-                return;
-            }
-
-            const algoWidthMode = document.querySelector('input[name="algorithm_width_mode"]:checked')?.value || 'mbti';
-            params.algorithm_width_mode = algoWidthMode;
-            if (algoWidthMode === 'manual') {
-                params.algorithm_manual_width = parseInt(document.getElementById('algorithm_manual_width')?.value) || 1;
-            }
-
-            // Include Global Provider Settings (only openrouter / llamacpp)
-            const provider = document.getElementById('llm-provider').value;
-            const openrouterKey = document.getElementById('openrouter-api-key').value.trim();
-            const openrouterMdl = document.getElementById('openrouter-model').value.trim();
-            const llamacppServerUrl = document.getElementById('llamacpp-url').value.trim();
-            const llamacppApiKey = 'no-key-required';
-            const llamacppEmbUrl = document.getElementById('llamacpp-embedding-url').value.trim();
-            const llamacppMdl = document.getElementById('llamacpp-model') ? document.getElementById('llamacpp-model').value.trim() : 'llama-3.2-1b-instruct';
-            const synthesisMdl = document.getElementById('synthesis-model') ? document.getElementById('synthesis-model').value.trim() : '';
-            const agentMdls = document.getElementById('agent-models') ? document.getElementById('agent-models').value.trim() : '';
-
-            params.provider = provider;
-            if (provider === 'openrouter') params.api_key = openrouterKey;
-
-            params.openrouter_model = openrouterMdl;
-            params.llamacpp_url = llamacppServerUrl;
-            params.llamacpp_api_key = llamacppApiKey;
-            params.llamacpp_embedding_url = llamacppEmbUrl;
-            params.llamacpp_model = llamacppMdl;
-            params.synthesis_model = synthesisMdl;
-            params.agent_models = agentMdls;
-
-            const algorithmDocContext = rebuildAlgorithmContext();
-            runGraph({
-                params,
-                mode: 'algorithm',
-                document_context: algorithmDocContext
-            }, '/build_and_run_graph');
+            // Legacy form removed — App Slot Machine uses NodeChat like Brainstorming.
         });
 
-        qnnFileInput.addEventListener('change', (e) => {
+        if (qnnFileInput) qnnFileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) {
                 importedStateContent = null;
@@ -1839,8 +1813,8 @@
 
 
 
-        inferenceContinueTrainingBtn.addEventListener('click', startContinueTrainingRun);
-        inferenceOnlyBtn.addEventListener('click', startInferenceOnlyRun);
+        if (inferenceContinueTrainingBtn) inferenceContinueTrainingBtn.addEventListener('click', startContinueTrainingRun);
+        if (inferenceOnlyBtn) inferenceOnlyBtn.addEventListener('click', startInferenceOnlyRun);
 
         exportQnnButton.addEventListener('click', () => {
             if (currentSessionId) {
@@ -1938,39 +1912,25 @@
 
                     console.log("Parsed answer:", answer);
 
-                    // Route FINAL_ANSWER into NodeChat or Code Result
-                    const isAlgorithmResult = answer.mode === 'algorithm' ||
-                        (answer.proposed_solution && answer.reasoning && answer.skills_used && answer.skills_used.includes('code_synthesis'));
-
-                    if (isAlgorithmResult) {
-                        console.log("Routing to Algorithm Code Result");
-                        // Algorithm / Code Result
-                        let codeToDisplay = answer.proposed_solution || "";
-
-                        // Robust regex for varied markdown code block formats
-                        const codeMatch = /```(?:\w+\n)?([\s\S]*?)```/.exec(codeToDisplay);
-                        if (codeMatch) {
-                            codeToDisplay = codeMatch[1].trim();
-                        } else if (codeToDisplay.includes('def ')) {
-                            // Fallback: if it looks like code but no backticks, keep as is
-                            codeToDisplay = codeToDisplay.trim();
+                    // Route FINAL_ANSWER into the active NodeChat (brainstorm or app slot machine)
+                    if (answer.mode === 'app_slot_machine' || (qdadChatInstance && answer.mode !== 'brainstorm' && document.getElementById('app-slot-machine-mode')?.classList.contains('active'))) {
+                        let displayText = '';
+                        if (typeof answer === 'object' && answer !== null) {
+                            if (answer.proposed_solution) displayText = answer.proposed_solution;
+                            else displayText = JSON.stringify(answer, null, 2);
+                        } else {
+                            displayText = String(answer);
                         }
-
-                        try {
-                            codeToDisplay = codeToDisplay.replace(/\\n/g, '\n').replace(/\\"/g, '"');
-                        } catch (e) { }
-
-                        // Visibility first: remove 'hidden' AND ensure parent container is 'active'
-                        algorithmMode.classList.remove('hidden');
-                        algorithmMode.classList.add('active');
-                        codeResultContainer.classList.remove('hidden');
-
-                        codeOutput.textContent = codeToDisplay;
-                        Prism.highlightElement(codeOutput);
-                        codeReasoning.textContent = answer.reasoning || "Synthesis complete.";
-                        exportQnnButton.classList.remove('hidden');
-
-                        addLogMessage(`<strong>✅ Graph results visualized below.</strong>`, { isHTML: true, color: 'lime' });
+                        displayText = '🎰 **App Build Prompt (QDAD)**\n\n' + displayText;
+                        if (qdadChatInstance) {
+                            qdadChatInstance.appendAIMessage(displayText);
+                            qdadChatHistory = qdadChatInstance.getChatHistory();
+                            qdadChatInstance.finishStreaming();
+                        } else {
+                            addLogMessage(displayText, { isHTML: true });
+                        }
+                        if (exportQnnButton) exportQnnButton.classList.remove('hidden');
+                        addLogMessage(`<strong>✅ QDAD synthesis complete.</strong>`, { isHTML: true, color: 'lime' });
                     } else if (answer.mode === 'brainstorm' || nodeChatInstance) {
                         // Brainstorm Reflection
                         let displayText = '';

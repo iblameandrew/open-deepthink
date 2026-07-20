@@ -53,6 +53,13 @@ from .distillation_chains import (
     DISTILLATION_ARCHETYPES,
 )
 
+from .qdad_chains import (
+    get_qdad_foundation_chain,
+    get_qdad_noise_chain,
+    get_qdad_critic_chain,
+    get_qdad_synthesis_chain,
+)
+
 __all__ = [
     # Agent chains
     "get_input_spanner_chain",
@@ -94,4 +101,9 @@ __all__ = [
     "get_mixing_chain",
     "get_followup_question_chain",
     "DISTILLATION_ARCHETYPES",
+    # QDAD / App Slot Machine
+    "get_qdad_foundation_chain",
+    "get_qdad_noise_chain",
+    "get_qdad_critic_chain",
+    "get_qdad_synthesis_chain",
 ]

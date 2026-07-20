@@ -21,7 +21,7 @@ def t1():
     from deepthink.state import GraphState
 
     s: GraphState = {
-        "mode": "algorithm",
+        "mode": "app_slot_machine",
         "modules": [],
         "synthesis_context_queue": [],
         "agent_personas": {},
@@ -48,7 +48,7 @@ def t1():
         "brainstorm_prior_conversation": "",
         "brainstorm_problem_summary": "",
     }
-    assert s["mode"] == "algorithm"
+    assert s["mode"] == "app_slot_machine"
 
 
 chk("GraphState TypedDict can be instantiated with all keys", t1)

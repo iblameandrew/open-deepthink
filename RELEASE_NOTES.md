@@ -1,3 +1,38 @@
+# Release Notes — `0.1.8`
+
+**Tag:** `0.1.8`
+**Date:** 2026-07-20
+**Tagline:** "Qualitative Diffusion — App Slot Machine Mode replaces Algorithm Design"
+
+## ✨ Headline: Qualitative Diffusion (QDAD)
+
+A new technique: re-implement diffusion at a purely qualitative scale.
+
+* **Language** is the computational medium.
+* **Nouns × verbs** are orthogonal basis directions for an N×N feature grid.
+* **High temperature** = controlled qualitative noise (forward diffusion).
+* **Critic agents** = reverse diffusion / score matching in language space.
+* **Output** = a Midjourney-style decode: vague aesthetic prompt → concrete agentic coding prompt.
+
+## 🎰 App Slot Machine Mode
+
+* **Replaces Algorithm Design Mode** entirely (UI + backend).
+* Frontend matches **Brainstorming Mode** (NodeChat shell, attachments, simulation mode).
+* GUI: N (2–8), Temperature Scale (0.7–1.8), Denoising Steps (1–6), Noun/Verb Temperature (0.3–1.0).
+* LangGraph: `foundation → grid → noise → denoise⟲ → synthesize` in `deepthink/qdad/`.
+* Parallel N×N noise induction and each denoising round; intermediate matrices persisted for transparency.
+* Model-agnostic (OpenRouter, llama.cpp, mocks).
+
+## Files
+
+* `deepthink/qdad/` — `state`, `nodes`, `graph`, `pipeline`, `utils`
+* `deepthink/chains/qdad_chains.py`
+* `app.py`, `index.html`, `css/theme.css`, `README.md`
+* `tests/phase_qdad.py` + updated e2e/static tests
+* `deepthink/__init__.py` — `0.1.8`
+
+---
+
 # Release Notes — `0.1.7`
 
 **Tag:** `0.1.7`

@@ -51,7 +51,7 @@ def t2():
     if not chk_passed:
         raise RuntimeError("TestClient not initialized")
     payload = {
-        "mode": "algorithm",
+        "mode": "app_slot_machine",
         "params": {
             "provider": "openrouter",
             "api_key": "sk-fake",
@@ -74,7 +74,7 @@ def t2():
     assert "session_id" in body
 
 
-chk("POST /build_and_run_graph algorithm+debug creates session", t2)
+chk("POST /build_and_run_graph app_slot_machine+debug creates session", t2)
 
 
 # 3) Wait for the background graph to complete and verify state
@@ -82,7 +82,7 @@ def t3():
     if not chk_passed:
         raise RuntimeError("TestClient not initialized")
     payload = {
-        "mode": "algorithm",
+        "mode": "app_slot_machine",
         "params": {
             "provider": "openrouter",
             "api_key": "sk-fake",
@@ -128,8 +128,9 @@ def t3():
         )
         return
     assert "proposed_solution" in state["final_solution"]
-    # All-layer prompts should exist
-    assert len(state["all_layers_prompts"]) == 2  # cot_trace_depth
+    # QDAD sessions store feature matrices (not QNN layer prompts)
+    assert state.get("mode") == "app_slot_machine"
+    assert "qdad_matrices" in state or state["final_solution"].get("feature_matrix")
 
 
 chk(
@@ -146,7 +147,7 @@ def t4():
     if not sessions:
         # Build one quickly
         payload = {
-            "mode": "algorithm",
+            "mode": "app_slot_machine",
             "params": {
                 "provider": "openrouter",
                 "api_key": "sk-fake",
@@ -170,7 +171,8 @@ def t4():
     r = client.get(f"/export_qnn/{sid}")
     assert r.status_code == 200
     body = r.json()
-    assert "all_layers_prompts" in body
+    assert "mode" in body
+    assert body.get("mode") in ("app_slot_machine", "brainstorm", "algorithm")
     # raptor_index should be present (None) or stripped
     assert body.get("raptor_index") is None
 
@@ -197,7 +199,7 @@ def t6():
     if not sessions:
         # Build one
         payload = {
-            "mode": "algorithm",
+            "mode": "app_slot_machine",
             "params": {
                 "provider": "openrouter",
                 "api_key": "sk-fake",
@@ -449,7 +451,7 @@ def t18():
 chk("/stop_distillation when no active graph -> 404", t18)
 
 
-# 19) Algorithm graph - check final_solution exists
+# 19) App Slot Machine / QDAD - check final_solution exists
 def t19():
     if not chk_passed:
         raise RuntimeError("TestClient not initialized")
@@ -468,7 +470,7 @@ def t19():
     found = False
     for sid, state in sessions.items():
         if (
-            state.get("mode") == "algorithm"
+            state.get("mode") == "app_slot_machine"
             and state.get("final_solution") is not None
             and isinstance(state.get("final_solution"), dict)
         ):
@@ -482,18 +484,28 @@ def t19():
         )
 
 
-chk("Algorithm graph eventually produces a final_solution (with debug LLM)", t19)
+chk("App Slot Machine / QDAD eventually produces a final_solution (with debug LLM)", t19)
 
 
-# 20) /run_inference_from_state - requires importing
+# 20) /run_inference_from_state - requires a full QNN state (not QDAD-only sessions)
 def t20():
     if not chk_passed:
         raise RuntimeError("TestClient not initialized")
-    # Use a session we built
+    # Use a session we built that has a QNN topology; skip pure QDAD sessions
     if not sessions:
         print("  WARN: No session to test inference with - skipping")
         return
-    sid = list(sessions.keys())[0]
+    sid = None
+    for candidate, state in sessions.items():
+        if state.get("all_layers_prompts"):
+            sid = candidate
+            break
+    if sid is None:
+        print(
+            "  INFO: No QNN topology session available for inference-only "
+            "(App Slot Machine sessions are QDAD-only) — skipping."
+        )
+        return
     exported = client.get(f"/export_qnn/{sid}").json()
     r = client.post(
         "/run_inference_from_state",

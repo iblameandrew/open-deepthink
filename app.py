@@ -72,6 +72,7 @@ from deepthink.chains import (
     get_brainstorming_reframer_chain,
     get_brainstorming_epoch_map_chain,
 )
+from deepthink.qdad import run_qdad_pipeline
 from deepthink.knowledge_distillation import DistillationGraph
 from deepthink.utils import clean_and_parse_json, execute_code_in_sandbox
 
@@ -651,6 +652,34 @@ Generate your code-focused critique for the team:"""
                     "new_problem": "The authentication API is complete. The new, more progressive problem is to build a scalable, real-time notification system that integrates with it."
                 }
             )
+        elif "you are the qdad foundation generator" in prompt:
+            n_match = re.search(r"exactly\s+(\d+)\s+distinct nouns", prompt)
+            n = int(n_match.group(1)) if n_match else 4
+            nouns = [
+                "canvas",
+                "ritual",
+                "lantern",
+                "notebook",
+                "harbor",
+                "echo",
+                "garden",
+                "compass",
+            ][:n]
+            verbs = [
+                "whisper",
+                "weave",
+                "anchor",
+                "glow",
+                "curate",
+                "rekindle",
+                "orbit",
+                "distill",
+            ][:n]
+            while len(nouns) < n:
+                nouns.append(f"noun{len(nouns)}")
+            while len(verbs) < n:
+                verbs.append(f"verb{len(verbs)}")
+            return json.dumps({"nouns": nouns, "verbs": verbs})
         elif "generate exactly" in prompt and "verbs" in prompt:
             return "design implement refactor test deploy abstract architect containerize scale secure query"
         elif "generate exactly" in prompt and "expert-level questions" in prompt:
@@ -844,6 +873,42 @@ def get_user(user_id: int):
             return (
                 "You are an evolved QNN expert focused on invariants and falsifiers. "
                 "Diverge or critique per your layer. No production patches."
+            )
+        # --- QDAD / App Slot Machine mocks (foundation handled earlier to beat verb-seed matcher) ---
+        elif "you are featureagent_" in prompt and "embrace noise" in prompt:
+            return (
+                "A slightly wild mock feature: ambient focus rituals that glow when the "
+                "writer drifts, with offline-first capture and gentle hallucination of "
+                "related draft fragments that still feel implementable."
+            )
+        elif "you are criticagent_" in prompt:
+            return (
+                "A refined mock feature: offline-first focus mode that gently signals "
+                "attention drift, queues soft reminders, and keeps draft fragments "
+                "coherent, useful, and implementable for night-time writers."
+            )
+        elif "you are the qdad synthesizer agent" in prompt:
+            return (
+                "# App Build Prompt\n\n"
+                "## High-Level Vision\n"
+                "A cozy offline-first productivity app for night writers with soft dark mode "
+                "and gentle focus rituals.\n\n"
+                "## Core Features (synthesized & prioritized from the diffusion matrix)\n"
+                "1. Ambient focus timer with soft glow feedback.\n"
+                "2. Offline-first draft capture with local sync queue.\n"
+                "3. Gentle notification rituals that never interrupt deep work.\n"
+                "4. Night-mode writing canvas with distraction dimming.\n\n"
+                "## Technical Architecture Suggestions\n"
+                "- React + local-first storage (IndexedDB / SQLite WASM).\n"
+                "- Optional cloud sync layer later.\n\n"
+                "## UI/UX Direction\n"
+                "- Soft dark palette, low contrast chrome, warm accent glows.\n\n"
+                "## Non-Functional Requirements\n"
+                "- Works fully offline; low battery impact; accessible contrast.\n\n"
+                "## Implementation Notes for the Coding Agent\n"
+                "- Build this as a complete, runnable application.\n"
+                "- Prefer modern, clean tech (React/Next.js + Tailwind, or Streamlit).\n"
+                "- Make it beautiful and immediately usable.\n"
             )
         else:
             # For synthesis or fallback
@@ -1257,7 +1322,7 @@ class GraphState(TypedDict):
     is_code_request: bool
     session_id: str
     chat_history: List[dict]
-    mode: Optional[str]  # "algorithm" or "brainstorm"
+    mode: Optional[str]  # "app_slot_machine" or "brainstorm"
     # Brainstorm-mode context. The keys are read in many nodes via state.get(...)
     # so adding them here is purely a type-honesty fix; runtime already worked
     # because TypedDict is structural at runtime.
@@ -2525,13 +2590,52 @@ async def run_inference_from_state(payload: dict = Body(...)):
         )
 
 
+async def run_qdad_background(
+    llm,
+    synthesis_llm,
+    params,
+    user_prompt: str,
+    session_id: str,
+    document_context: str = "",
+    chat_history=None,
+    is_debug: bool = False,
+    provider: str = "openrouter",
+    api_key: str = "",
+    default_agent_model: str = "",
+    agent_model_list=None,
+    llamacpp_url: str = "",
+    llamacpp_api_key: str = "",
+    token_tracker=None,
+):
+    """
+    App Slot Machine background runner.
+
+    Delegates to deepthink.qdad.run_qdad_pipeline (LangGraph):
+      foundation → grid → noise → denoise* → synthesize
+    """
+    async def _log(msg: str):
+        await log_stream.put(msg)
+
+    await run_qdad_pipeline(
+        llm=llm,
+        synthesis_llm=synthesis_llm or llm,
+        params=params or {},
+        user_prompt=user_prompt or "",
+        session_id=session_id,
+        document_context=document_context or "",
+        chat_history=chat_history or [],
+        log=_log,
+        session_store=sessions,
+    )
+
+
 @app.post("/build_and_run_graph")
 async def build_and_run_graph(payload: dict = Body(...)):
     llm = None
     embeddings_model = None
     summarizer_llm = None
     params = payload.get("params", {})
-    mode = payload.get("mode", "algorithm")
+    mode = payload.get("mode", "brainstorm")
 
     # Initialize Token Tracker
     token_tracker = TokenUsageTracker(log_stream)
@@ -2710,22 +2814,22 @@ async def build_and_run_graph(payload: dict = Body(...)):
     document_context = payload.get("document_context", "")
     user_prompt = params.get("prompt")
 
-    if document_context and mode == "algorithm":
+    if document_context and mode in ("app_slot_machine", "algorithm"):
         capped_context = document_context[:50000]
         user_prompt = (
-            f"{user_prompt}\n\n--- Attached Code Context ---\n{capped_context}"
+            f"{user_prompt}\n\n--- Attached Context ---\n{capped_context}"
             if user_prompt
             else capped_context
         )
         params["prompt"] = user_prompt
         await log_stream.put(
-            f"LOG: Code context attached to algorithm prompt ({len(capped_context)} characters)."
+            f"LOG: Context attached to prompt ({len(capped_context)} characters)."
         )
 
     detected_is_code = False
 
-    # Only perform code detection if not in brainstorm mode
-    if mode != "brainstorm":
+    # Code detection only for legacy algorithm-style runs (not brainstorm / QDAD)
+    if mode not in ("brainstorm", "app_slot_machine"):
         try:
             request_is_code_chain = get_request_is_code_chain(llm)
             detected_is_code = (
@@ -2743,18 +2847,59 @@ async def build_and_run_graph(payload: dict = Body(...)):
         coder_debug_param == "true" or coder_debug_param is True
     )
 
-    # Problem 1: Algorithm mode should ALWAYS be treated as a code task
-    if mode == "algorithm":
-        is_code = True
-        await log_stream.put(
-            "LOG: Algorithm mode detected. Forcing code task synthesis path."
-        )
-
-    if mode == "brainstorm":
-        is_code = False  # Force false for brainstorming
+    if mode in ("brainstorm", "app_slot_machine"):
+        is_code = False
 
     await log_stream.put(f"--- Starting Graph Build and Run Process (Mode: {mode}) ---")
     await log_stream.put(f"Parameters: {params}")
+
+    # ── App Slot Machine (QDAD): dedicated qualitative diffusion pipeline ──
+    if mode == "app_slot_machine":
+        session_id = str(uuid.uuid4())
+        sessions[session_id] = {
+            "session_id": session_id,
+            "mode": "app_slot_machine",
+            "original_request": user_prompt,
+            "params": params,
+            "final_solution": None,
+            "qdad_matrices": {},
+            "all_rag_documents": [],
+            "all_layers_prompts": [],
+            "agent_personas": {},
+            "agent_outputs": {},
+            "memory": {},
+            "epoch": 0,
+            "max_epochs": 1,
+            "raptor_index": None,
+        }
+        await log_stream.put(f"__session_id__ {session_id}")
+        await log_stream.put(
+            "__start__ QDAD N×N Feature Grid\n"
+            "  Phase 0 Foundation → Phase 1 Grid → Phase 2 Noise\n"
+            "  → Phase 3 Denoise → Phase 4 Synthesis"
+        )
+        asyncio.create_task(
+            run_qdad_background(
+                llm=llm,
+                synthesis_llm=synthesis_llm,
+                params=params,
+                user_prompt=user_prompt or "",
+                session_id=session_id,
+                document_context=document_context or "",
+                chat_history=payload.get("chat_history", []) or [],
+                is_debug=is_debug,
+                provider=provider,
+                api_key=api_key,
+                default_agent_model=default_agent_model,
+                agent_model_list=agent_model_list,
+                llamacpp_url=llamacpp_url,
+                llamacpp_api_key=llamacpp_api_key,
+                token_tracker=token_tracker,
+            )
+        )
+        return JSONResponse(
+            content={"message": "Graph started.", "session_id": session_id}
+        )
 
     decomposed_problems_map = {}
     all_layers_prompts = []
@@ -3092,94 +3237,15 @@ QNN cell: Layer {i} ({layer_role}), Node {j}.
                     decomposed_problems_map[agent_id] = user_prompt
 
         else:
-            # ALGORITHM MODE SETUP (Existing Logic)
-            mbti_archetypes = params.get("mbti_archetypes")
-            word_vector_size = int(params.get("vector_word_size"))
-            cot_trace_depth = max(1, int(params.get("cot_trace_depth", 3)))
-
-            if not mbti_archetypes or len(mbti_archetypes) < 2:
-                return JSONResponse(
-                    content={"message": "Select at least 2 MBTI archetypes."},
-                    status_code=400,
-                )
-
-            algorithm_width_mode = params.get("algorithm_width_mode", "mbti")
-            if algorithm_width_mode == "manual":
-                num_agents_per_layer = max(
-                    1, int(params.get("algorithm_manual_width", len(mbti_archetypes)))
-                )
-                await log_stream.put(
-                    f"LOG: Manual algorithm width: {num_agents_per_layer} agents/layer (MBTI types cycle)."
-                )
-            else:
-                num_agents_per_layer = len(mbti_archetypes)
-
-            await log_stream.put(
-                "--- Decomposing Original Problem into Subproblems ---"
-            )
-            total_agents_to_create = num_agents_per_layer * cot_trace_depth
-            decomposition_chain = get_problem_decomposition_chain(llm)
-
-            sub_problems_str = await decomposition_chain.ainvoke(
-                {"problem": user_prompt, "num_sub_problems": total_agents_to_create}
-            )
-            try:
-                sub_problems_list = clean_and_parse_json(sub_problems_str).get(
-                    "sub_problems", []
-                )
-            except:
-                sub_problems_list = [user_prompt] * total_agents_to_create
-
-            problem_idx = 0
-            for i in range(cot_trace_depth):
-                for j in range(num_agents_per_layer):
-                    agent_id = f"agent_{i}_{j}"
-                    if problem_idx < len(sub_problems_list):
-                        decomposed_problems_map[agent_id] = sub_problems_list[
-                            problem_idx
-                        ]
-                        problem_idx += 1
-                    else:
-                        decomposed_problems_map[agent_id] = user_prompt
-
-            num_mbti_types = len(mbti_archetypes)
-            total_verbs_to_generate = word_vector_size * num_mbti_types
-            seed_generation_chain = get_seed_generation_chain(llm)
-            generated_verbs_str = await seed_generation_chain.ainvoke(
-                {"problem": user_prompt, "word_count": total_verbs_to_generate}
-            )
-            all_verbs = list(set(generated_verbs_str.split()))
-            random.shuffle(all_verbs)
-            seeds = {
-                mbti: " ".join(random.sample(all_verbs, word_vector_size))
-                for mbti in mbti_archetypes
-            }
-
-            input_spanner_chain = get_input_spanner_chain(
-                llm, params["prompt_alignment"], params["density"]
-            )
-
-            for i in range(cot_trace_depth):
-                layer_prompts = []
-                for j in range(num_agents_per_layer):
-                    mbti = mbti_archetypes[j % num_mbti_types]
-                    gw = seeds[mbti]
-                    agent_id = f"agent_{i}_{j}"
-                    prompt = await input_spanner_chain.ainvoke(
-                        {
-                            "mbti_type": mbti,
-                            "guiding_words": gw,
-                            "sub_problem": decomposed_problems_map[agent_id],
-                            "critique": "",
-                            "name": names.get_full_name(),
-                        }
+            return JSONResponse(
+                content={
+                    "message": (
+                        f"Unsupported mode '{mode}'. "
+                        "Use 'brainstorm' or 'app_slot_machine'."
                     )
-                    layer_prompts.append(prompt)
-                    agent_personas[agent_id] = {
-                        "name": names.get_full_name(),
-                        "mbti_type": mbti,
-                    }
-                all_layers_prompts.append(layer_prompts)
+                },
+                status_code=400,
+            )
 
     except Exception as e:
         error_message = f"Error during graph setup: {e}"
@@ -3381,22 +3447,21 @@ async def run_graph_background(graph, initial_state):
 
         # Final result processing after the graph ends
         final_state = sessions[session_id]
-        if mode == "algorithm":
-            final_solution = final_state.get("final_solution")
-            if final_solution:
-                await log_stream.put(
-                    f"LOG: [DEBUG] Emitting FINAL_ANSWER for algorithm mode. Type: {type(final_solution)}"
-                )
-                await log_stream.put(f"FINAL_ANSWER: {json.dumps(final_solution)}")
-                await log_stream.put("SUCCESS: Algorithm graph execution completed.")
-            else:
-                await log_stream.put(
-                    "WARNING: Algorithm graph completed but no final_solution was found in state."
-                )
-        elif mode == "brainstorm":
+        if mode == "brainstorm":
             # Brainstorm mode already emits FINAL_ANSWER from the synthesis node itself,
             # but we log completion here for the server console.
             await log_stream.put("SUCCESS: Brainstorm graph execution completed.")
+        elif mode == "app_slot_machine":
+            await log_stream.put("SUCCESS: App Slot Machine (QDAD) completed.")
+        else:
+            final_solution = final_state.get("final_solution")
+            if final_solution:
+                await log_stream.put(f"FINAL_ANSWER: {json.dumps(final_solution)}")
+                await log_stream.put("SUCCESS: Graph execution completed.")
+            else:
+                await log_stream.put(
+                    "WARNING: Graph completed but no final_solution was found in state."
+                )
 
     except Exception as e:
         await log_stream.put(f"Graph Background Error: {e}")
@@ -3418,10 +3483,23 @@ async def export_qnn(session_id: str):
     state_to_export.pop("embeddings_model", None)
     state_to_export.pop("raptor_index", None)
 
-    for idx, document in enumerate(state_to_export["all_rag_documents"]):
-        state_to_export["all_rag_documents"][idx] = document.dict()
+    rag_docs = state_to_export.get("all_rag_documents") or []
+    serialized_docs = []
+    for document in rag_docs:
+        if hasattr(document, "dict"):
+            serialized_docs.append(document.dict())
+        elif hasattr(document, "model_dump"):
+            serialized_docs.append(document.model_dump())
+        elif isinstance(document, dict):
+            serialized_docs.append(document)
+        else:
+            serialized_docs.append({"page_content": str(document), "metadata": {}})
+    state_to_export["all_rag_documents"] = serialized_docs
 
-    await log_stream.put(f"--- [EXPORT] Exporting QNN for session {session_id} ---")
+    await log_stream.put(
+        f"--- [EXPORT] Exporting session {session_id} "
+        f"(mode={state_to_export.get('mode', '?')}) ---"
+    )
 
     return JSONResponse(
         content=state_to_export,
@@ -3443,8 +3521,22 @@ async def import_qnn(file: UploadFile = File(...)):
         session_id = str(uuid.uuid4())
         imported_state["session_id"] = session_id
 
-        for idx, document in enumerate(imported_state["all_rag_documents"]):
-            imported_state["all_rag_documents"][idx] = Document.from_dict(document)
+        rag_docs = imported_state.get("all_rag_documents") or []
+        restored = []
+        for document in rag_docs:
+            if isinstance(document, dict):
+                try:
+                    restored.append(Document.from_dict(document))
+                except Exception:
+                    restored.append(
+                        Document(
+                            page_content=document.get("page_content", ""),
+                            metadata=document.get("metadata") or {},
+                        )
+                    )
+            else:
+                restored.append(document)
+        imported_state["all_rag_documents"] = restored
 
         sessions[session_id] = imported_state
         await log_stream.put(

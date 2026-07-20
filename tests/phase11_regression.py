@@ -329,7 +329,7 @@ async def r14():
     from app import create_reframe_and_decompose_node
 
     s = {
-        "mode": "algorithm",
+        "mode": "app_slot_machine",
         "modules": [],
         "synthesis_context_queue": [],
         "agent_personas": {
@@ -379,7 +379,7 @@ chk("BUG-2 regression: reframe_and_decompose works for 9-agent QNN", r14)
 def r15():
     client = TestClient(app)
     payload = {
-        "mode": "algorithm",
+        "mode": "app_slot_machine",
         "params": {
             "provider": "openrouter",
             "api_key": "sk-fake",

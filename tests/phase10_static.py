@@ -61,7 +61,7 @@ def t3():
         text = f.read()
     required = [
         "Brainstorming",
-        "Algorithm Design",
+        "App Slot Machine",
         "Distillation",
         "Mirror Descent",
         "Qualitative Neural Network",
@@ -454,13 +454,13 @@ def t23():
         html = f.read()
     assert "memory-calculator.js" in html
     assert "brainstorm-mem-calc" in html
-    assert "algorithm-mem-calc" in html
-    assert "algorithm_width_mode" in html
+    assert "qdad-mem-calc" in html
+    assert "qdad_grid_size" in html
     assert 'id="manual_layers"' in html and 'max="10000"' not in html.split('id="manual_layers"')[1][:200]
-    assert 'id="cot_trace_depth"' in html and 'max="32"' not in html
+    assert 'id="qdad_grid_size"' in html and "qdad_temperature_scale" in html and "qdad_denoising_steps" in html
 
 
-chk("index.html has memory calculator and unlimited dimension inputs", t23)
+chk("index.html has memory calculator and QDAD controls", t23)
 
 
 # 24) Backend accepts unlimited manual topology (no 10000 cap)
@@ -470,11 +470,11 @@ def t24():
     app_mod = importlib.import_module("app")
     src = inspect_getsource(app_mod.build_and_run_graph)
     assert "min(10000" not in src
-    assert "algorithm_width_mode" in src
-    assert "j % num_mbti_types" in src
+    assert "app_slot_machine" in src
+    assert "run_qdad_background" in src or "QDAD" in src
 
 
-chk("build_and_run_graph supports unlimited dims and manual algorithm width", t24)
+chk("build_and_run_graph supports app_slot_machine / QDAD path", t24)
 
 
 # 25) CHANGELOG/RELEASE file - is there one?
