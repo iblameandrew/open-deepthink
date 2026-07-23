@@ -11,34 +11,45 @@ Use it when:
 - You are **stuck** (deadlock, race, perf cliff, circular local fixes), or
 - A **feature / artifact** needs wider depth (richer metrics, APIs, UX options).
 
-## 1. Place `SKILL.md` where your agent loads skills
+## 1. Place skill files where your agent loads skills
+
+Copy the whole skill folder (not only `SKILL.md`):
+
+| File | Role |
+|------|------|
+| `SKILL.md` | Procedure + when to invoke |
+| `CODE_REFERENCE.md` | Parameter contract + library API |
+| `run_qnn.py` | CLI entrypoint the harness should execute |
+| `INSTALL.md` | This file |
 
 ### Grok (user-global)
 
 ```bash
 mkdir -p ~/.grok/skills/qnn
-cp SKILL.md ~/.grok/skills/qnn/SKILL.md
+cp SKILL.md CODE_REFERENCE.md run_qnn.py INSTALL.md ~/.grok/skills/qnn/
 ```
 
 Windows PowerShell:
 
 ```powershell
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.grok\skills\qnn"
-Copy-Item SKILL.md "$env:USERPROFILE\.grok\skills\qnn\SKILL.md"
+Copy-Item SKILL.md,CODE_REFERENCE.md,run_qnn.py,INSTALL.md "$env:USERPROFILE\.grok\skills\qnn\"
 ```
 
-### Grok (this project only)
+### Runtime for real code (required for runners)
 
 ```bash
-mkdir -p .grok/skills/qnn
-cp SKILL.md .grok/skills/qnn/SKILL.md
+# Clone or set root so deepthink.qnn is importable
+export OPEN_DEEPTHINK_ROOT=/path/to/open-deepthink
+# optional: pip install -e "$OPEN_DEEPTHINK_ROOT"
 ```
 
-### Other agents (Claude Code, Cursor, Codex, custom)
+Without the package, the agent may still *simulate* the skill procedure; with
+it, prefer:
 
-Copy `SKILL.md` into that product’s skills / prompts directory, or attach the
-file at session start. The procedure is host-agnostic; rename tool calls as
-needed.
+```bash
+python $OPEN_DEEPTHINK_ROOT/skills/qnn/run_qnn.py --prompt "…" --provider openrouter
+```
 
 ## 2. Invoke
 

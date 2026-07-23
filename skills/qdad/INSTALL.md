@@ -7,33 +7,38 @@ Turns a vague Midjourney-style app prompt into a structured **agentic coding
 prompt** via noun×verb basis grids, high-T noise, critic reverse diffusion,
 and synthesis — without needing the open-deepthink server.
 
-## 1. Place `SKILL.md` where your agent loads skills
+## 1. Place skill files where your agent loads skills
+
+| File | Role |
+|------|------|
+| `SKILL.md` | Procedure + philosophy |
+| `CODE_REFERENCE.md` | Parameter contract + `run_qdad_pipeline` API |
+| `run_qdad.py` | CLI the harness should execute |
+| `INSTALL.md` | This file |
 
 ### Grok Build / Grok agent (user-global)
 
 ```bash
 mkdir -p ~/.grok/skills/qdad
-cp SKILL.md ~/.grok/skills/qdad/SKILL.md
+cp SKILL.md CODE_REFERENCE.md run_qdad.py INSTALL.md ~/.grok/skills/qdad/
 ```
 
 Windows PowerShell:
 
 ```powershell
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.grok\skills\qdad"
-Copy-Item SKILL.md "$env:USERPROFILE\.grok\skills\qdad\SKILL.md"
+Copy-Item SKILL.md,CODE_REFERENCE.md,run_qdad.py,INSTALL.md "$env:USERPROFILE\.grok\skills\qdad\"
 ```
 
-### Grok (this project only)
+### Runtime for real code
 
 ```bash
-mkdir -p .grok/skills/qdad
-cp SKILL.md .grok/skills/qdad/SKILL.md
+export OPEN_DEEPTHINK_ROOT=/path/to/open-deepthink
+python $OPEN_DEEPTHINK_ROOT/skills/qdad/run_qdad.py \
+  --prompt "cozy night writing app…" --n 3 --denoising-steps 2
 ```
 
-### Other agents (Claude Code, Cursor, Codex, custom)
-
-Copy `SKILL.md` into that product’s skills / prompts directory, or attach the
-file at session start. The procedure is host-agnostic.
+Engine: `deepthink.qdad.run_qdad_pipeline` (LangGraph App Slot Machine).
 
 ## 2. Invoke
 

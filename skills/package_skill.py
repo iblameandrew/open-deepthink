@@ -37,13 +37,19 @@ def package_skill(skill_id: str, version: str) -> Path:
     DIST_DIR.mkdir(parents=True, exist_ok=True)
     prefix = SKILLS[skill_id]
     out = DIST_DIR / f"{prefix}-{version}.zip"
-    members = ["SKILL.md", "INSTALL.md"]
+    # Docs + runners + code contract (implementation lives in deepthink.* package)
+    members = [
+        "SKILL.md",
+        "INSTALL.md",
+        "CODE_REFERENCE.md",
+        f"run_{skill_id}.py",
+    ]
     with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name in members:
             path = skill_dir / name
             if not path.is_file():
                 raise SystemExit(f"Missing {path}")
-            # Layout: {skill_id}/SKILL.md so unzip into ~/.grok/skills works
+            # Layout: {skill_id}/… so unzip into ~/.grok/skills works
             zf.write(path, arcname=f"{skill_id}/{name}")
     return out
 

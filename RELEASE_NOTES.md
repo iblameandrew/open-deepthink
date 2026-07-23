@@ -1,3 +1,45 @@
+# Release Notes — `0.1.12`
+
+**Tag:** `0.1.12`
+**Date:** 2026-07-23
+**Tagline:** "Skills ship runnable code entrypoints for QNN + Qualitative Diffusion"
+
+## ✨ Headline: Harnesses run real pipelines (not only markdown)
+
+Portable `/qnn` and `/qdad` skills now **reference and execute** the library
+implementations with a documented parameter contract.
+
+### Library
+
+* **`deepthink.qnn.run_qnn_pipeline`** — full brainstorm QNN (topology, seeds,
+  span, epochs, self-attention, Mirror Descent, Solution-Space Report)
+* **`deepthink.qdad.run_qdad_pipeline`** — existing App Slot Machine / QDAD
+  LangGraph engine (unchanged API, documented for skills)
+
+### Skill package contents
+
+Each skill zip now includes:
+
+| File | Role |
+|------|------|
+| `SKILL.md` | Procedure + **Run the code** section |
+| `CODE_REFERENCE.md` | Parameter tables + Python API + return shape |
+| `run_qnn.py` / `run_qdad.py` | CLI for harness shells |
+| `INSTALL.md` | Install + `OPEN_DEEPTHINK_ROOT` |
+
+### Harness contract
+
+```bash
+export OPEN_DEEPTHINK_ROOT=/path/to/open-deepthink
+python skills/qnn/run_qnn.py --prompt "…" --qnn-mode auto
+python skills/qdad/run_qdad.py --prompt "…" --n 3 --denoising-steps 2
+```
+
+Or `await run_*_pipeline(llm, …, params={…})`. Prefer code when importable;
+markdown procedure remains the offline fallback.
+
+---
+
 # Release Notes — `0.1.11`
 
 **Tag:** `0.1.11`

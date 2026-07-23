@@ -13,10 +13,15 @@ body are examples — adapt them to your runtime.
 | **qnn** | [`qnn/SKILL.md`](./qnn/SKILL.md) | Sticky debug loops **or** features that need wider depth — layered strategy maps from problem-space **verbs + nouns** |
 | **qdad** | [`qdad/SKILL.md`](./qdad/SKILL.md) | Vague Midjourney-style **app vibe** → concrete **agentic coding prompt** via **Qualitative Diffusion** (noun×verb grid, noise, critic reverse diffusion, synthesize) |
 
-| Technique | Skill | Output |
-|-----------|-------|--------|
-| Qualitative Neural Network | `/qnn` | Solution-space / strategy map (then implement) |
-| Qualitative Diffusion | `/qdad` | App Build Prompt (then implement) |
+| Technique | Skill | Output | Code entrypoint |
+|-----------|-------|--------|-----------------|
+| Qualitative Neural Network | `/qnn` | Solution-space / strategy map | `deepthink.qnn.run_qnn_pipeline` · [`qnn/run_qnn.py`](./qnn/run_qnn.py) · [`qnn/CODE_REFERENCE.md`](./qnn/CODE_REFERENCE.md) |
+| Qualitative Diffusion | `/qdad` | App Build Prompt | `deepthink.qdad.run_qdad_pipeline` · [`qdad/run_qdad.py`](./qdad/run_qdad.py) · [`qdad/CODE_REFERENCE.md`](./qdad/CODE_REFERENCE.md) |
+
+**Harness rule:** if `deepthink` is importable (repo / `OPEN_DEEPTHINK_ROOT` /
+`pip install -e .`), **run the CLI or library API** with the parameter
+tables in each `CODE_REFERENCE.md`. Only simulate the markdown procedure when
+the package is unavailable.
 
 ## Quick import
 

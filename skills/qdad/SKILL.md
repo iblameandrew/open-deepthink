@@ -24,10 +24,52 @@ product vibe** into a **concrete, buildable app specification** — the same job
 Midjourney does for images, but the latent is **language** and the decode target
 is an **agentic coding prompt**.
 
-This skill is **portable**. You do not need the open-deepthink server. Any agent
-that can run multi-step LLM reasoning (and optionally parallel sub-agents) can
-execute this procedure. It is the same algorithm as open-deepthink **App Slot
-Machine Mode** (`deepthink/qdad/`).
+This skill is **portable**. You do not need the open-deepthink **HTTP server**.
+Prefer running the **reference code** (below). Procedural steps later in this
+file are the fallback when the package is unavailable. Same algorithm as
+open-deepthink **App Slot Machine Mode** (`deepthink/qdad/`).
+
+## Run the code (preferred over pure simulation)
+
+When **open-deepthink** is on `PYTHONPATH` / installed / `OPEN_DEEPTHINK_ROOT`,
+the harness **must execute the QDAD engine** and pass structured parameters.
+
+| | |
+|--|--|
+| **Library** | `from deepthink.qdad import run_qdad_pipeline` |
+| **Source** | `deepthink/qdad/pipeline.py` (+ `graph.py`, `nodes.py`) |
+| **CLI** | `python skills/qdad/run_qdad.py --prompt "…" [flags]` |
+| **Full contract** | [`CODE_REFERENCE.md`](./CODE_REFERENCE.md) |
+
+```bash
+export OPEN_DEEPTHINK_ROOT=/path/to/open-deepthink
+export OPENROUTER_API_KEY=sk-...
+python skills/qdad/run_qdad.py \
+  --prompt "cozy night writing app, soft dark mode, offline-first" \
+  --n 3 --temperature-scale 1.3 --denoising-steps 2 \
+  --noun-verb-temperature 0.6 \
+  --out /tmp/qdad.json
+```
+
+```python
+result = await run_qdad_pipeline(
+    llm=llm,
+    params={
+        "grid_size": 4,                # N  (also accept "n")
+        "n": 4,
+        "temperature_scale": 1.3,      # forward diffusion noise T
+        "denoising_steps": 3,          # reverse diffusion rounds
+        "noun_verb_temperature": 0.6,  # foundation basis T
+    },
+    user_prompt=midjourney_style_intent,
+    document_context=optional_docs,
+    log=print_progress,
+)
+# Deliver result["proposed_solution"]  # # App Build Prompt
+```
+
+Parse user text for overrides (`N=3`, `steps=2`, etc.) into these params.
+If the package is not importable, fall back to the multi-step procedure below.
 
 ## Technique analysis (read this; it is the algorithm)
 

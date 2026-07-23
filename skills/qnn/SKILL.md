@@ -36,6 +36,54 @@ immediately implement a fix or ship a full feature dump. Output a rich map of
 divergent approaches; then let the user (or the normal coding loop) pick
 directions to feed back into edit → run → debug (or design → spike → ship).
 
+## Run the code (preferred over pure simulation)
+
+When the **open-deepthink** package is available (repo clone, `pip install -e .`,
+or `OPEN_DEEPTHINK_ROOT`), the harness **must execute the reference
+implementation** rather than only role-playing the steps below.
+
+| | |
+|--|--|
+| **Library** | `from deepthink.qnn import run_qnn_pipeline, default_qnn_params` |
+| **Source** | `deepthink/qnn/pipeline.py` |
+| **CLI** | `python skills/qnn/run_qnn.py --prompt "…" [flags]` |
+| **Full contract** | [`CODE_REFERENCE.md`](./CODE_REFERENCE.md) |
+
+```bash
+# From open-deepthink repo root (or set OPEN_DEEPTHINK_ROOT)
+export OPENROUTER_API_KEY=sk-...
+python skills/qnn/run_qnn.py \
+  --prompt "explore this deadlock" \
+  --provider openrouter \
+  --qnn-mode auto \
+  --out /tmp/qnn.json
+```
+
+```python
+# Harness-side call
+result = await run_qnn_pipeline(
+    llm,
+    user_prompt=user_text,
+    params={
+        "qnn_mode": "auto",           # or "manual"
+        "manual_layers": 3,
+        "manual_width": 3,
+        "num_epochs": 2,
+        "vector_word_size": 6,
+        "learning_rate": 0.5,
+        "attention_top_k": 5,
+        "enable_self_attention": True,
+    },
+    document_context=optional_docs,
+    log=print_progress,
+)
+# Deliver result["proposed_solution"]  # Solution-Space Report
+```
+
+If the package is **not** importable, fall back to the procedural steps in this
+file (simulate layers/epochs carefully). Prefer installing or pointing
+`OPEN_DEEPTHINK_ROOT` at the monorepo so real code runs.
+
 ## Usage
 
 ```

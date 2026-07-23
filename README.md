@@ -253,12 +253,21 @@ Drop these into `~/.grok/skills/` (or your host’s skills root). **No open-deep
 /qdad N=3 steps=2 — garden-like habit tracker
 ```
 
-Runs the full QDAD procedure inside the host agent: foundation nouns/verbs → N×N grid → parallel noise → iterative critic reverse diffusion → synthesizer **App Build Prompt**. Then hand off to normal edit → run → test.
+Runs the full QDAD procedure — prefer **executing the engine**, not only simulating:
+
+```bash
+export OPEN_DEEPTHINK_ROOT=/path/to/open-deepthink
+python skills/qdad/run_qdad.py --prompt "cozy night writing app…" --n 3 --denoising-steps 2
+```
+
+Library: `await run_qdad_pipeline(llm, params={...}, user_prompt=...)` — see [`skills/qdad/CODE_REFERENCE.md`](./skills/qdad/CODE_REFERENCE.md).
 
 | Artifact | Location |
 |----------|----------|
 | Skill body | [`skills/qdad/SKILL.md`](./skills/qdad/SKILL.md) |
-| Install | [`skills/qdad/INSTALL.md`](./skills/qdad/INSTALL.md) |
+| Code contract | [`skills/qdad/CODE_REFERENCE.md`](./skills/qdad/CODE_REFERENCE.md) |
+| CLI | [`skills/qdad/run_qdad.py`](./skills/qdad/run_qdad.py) |
+| Engine | `deepthink.qdad.run_qdad_pipeline` |
 | Release zip | `qdad-skill-<version>.zip` on [Releases](https://github.com/iblameandrew/open-deepthink/releases) |
 
 ### `/qnn` — Qualitative Neural Network escape hatch
@@ -268,21 +277,28 @@ Runs the full QDAD procedure inside the host agent: foundation nouns/verbs → N
 /qnn richer metrics for the training dashboard
 ```
 
-Layered personas, multi-epoch forward passes, Mirror Descent, harder reframes → strategy map with falsifiers (not an immediate production patch).
+```bash
+python skills/qnn/run_qnn.py --prompt "explore this deadlock" --qnn-mode auto
+```
+
+Library: `await run_qnn_pipeline(llm, prompt, params={...})` — see [`skills/qnn/CODE_REFERENCE.md`](./skills/qnn/CODE_REFERENCE.md).
 
 | Artifact | Location |
 |----------|----------|
 | Skill body | [`skills/qnn/SKILL.md`](./skills/qnn/SKILL.md) |
-| Install | [`skills/qnn/INSTALL.md`](./skills/qnn/INSTALL.md) |
+| Code contract | [`skills/qnn/CODE_REFERENCE.md`](./skills/qnn/CODE_REFERENCE.md) |
+| CLI | [`skills/qnn/run_qnn.py`](./skills/qnn/run_qnn.py) |
+| Engine | `deepthink.qnn.run_qnn_pipeline` |
 | Release zip | `qnn-skill-<version>.zip` on [Releases](https://github.com/iblameandrew/open-deepthink/releases) |
 
 ### Install both (Grok Build user skills)
 
 ```bash
-# Linux / macOS
+# Linux / macOS — copy full skill folders (SKILL + CODE_REFERENCE + run_*.py)
 mkdir -p ~/.grok/skills/qnn ~/.grok/skills/qdad
-cp skills/qnn/SKILL.md ~/.grok/skills/qnn/SKILL.md
-cp skills/qdad/SKILL.md ~/.grok/skills/qdad/SKILL.md
+cp skills/qnn/{SKILL.md,CODE_REFERENCE.md,run_qnn.py,INSTALL.md} ~/.grok/skills/qnn/
+cp skills/qdad/{SKILL.md,CODE_REFERENCE.md,run_qdad.py,INSTALL.md} ~/.grok/skills/qdad/
+export OPEN_DEEPTHINK_ROOT="$(pwd)"   # so runners import deepthink.*
 
 # Or from release assets
 gh release download --repo iblameandrew/open-deepthink --pattern "*-skill-*.zip"
@@ -290,17 +306,9 @@ unzip qnn-skill-*.zip -d ~/.grok/skills
 unzip qdad-skill-*.zip -d ~/.grok/skills
 ```
 
-Windows PowerShell:
-
-```powershell
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.grok\skills\qnn","$env:USERPROFILE\.grok\skills\qdad"
-Copy-Item skills\qnn\SKILL.md "$env:USERPROFILE\.grok\skills\qnn\SKILL.md"
-Copy-Item skills\qdad\SKILL.md "$env:USERPROFILE\.grok\skills\qdad\SKILL.md"
-```
-
 Full skills index: [`skills/README.md`](./skills/README.md).
 
-The full open-deepthink server remains the place for long evolutionary runs, App Slot Machine logs/matrices, export/import of trained QNNs, and distillation datasets. Portable skills are the lightweight escape hatches for day-to-day agentic coding.
+The full open-deepthink server remains the place for long evolutionary runs, App Slot Machine logs/matrices, export/import of trained QNNs, and distillation datasets. Portable skills are the lightweight escape hatches — with **runnable code entrypoints** when the package is available.
 
 ---
 
