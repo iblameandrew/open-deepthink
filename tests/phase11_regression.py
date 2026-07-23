@@ -405,6 +405,37 @@ chk("BUG-3 regression: /build_and_run_graph no longer crashes on draw_ascii", r1
 
 
 # ============================================================
+# Slot-machine debug mode: no API key required
+# ============================================================
+def r15b():
+    client = TestClient(app)
+    payload = {
+        "mode": "app_slot_machine",
+        "params": {
+            "provider": "openrouter",
+            "api_key": "",  # deliberately empty
+            "openrouter_model": "fake/model",
+            "prompt": "a cozy night-writing app",
+            "grid_size": 2,
+            "n": 2,
+            "temperature_scale": 1.2,
+            "denoising_steps": 1,
+            "noun_verb_temperature": 0.5,
+            "debug_mode": "true",
+            "coder_debug_mode": "true",
+        },
+    }
+    r = client.post("/build_and_run_graph", json=payload)
+    assert r.status_code == 200, f"Expected 200 without API key in debug, got {r.status_code}: {r.text}"
+    body = r.json()
+    assert "session_id" in body
+    assert body.get("message") == "Graph started."
+
+
+chk("Slot machine debug mode runs without OpenRouter API key", r15b)
+
+
+# ============================================================
 # BUG-12: Perplexity chart accumulating duplicate points
 # Verify that the main-graph metrics broadcast includes
 # "type":"perplexity_update" and that the distillation loop

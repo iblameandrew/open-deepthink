@@ -300,6 +300,72 @@ async def t20():
 
 chk("CoderMockLLM astream fallback for non-streamable prompt", t20)
 
+
+# === QDAD / App Slot Machine mock patterns ===
+async def t21():
+    import json
+
+    out = await CMLL().ainvoke(
+        "You are the QDAD Foundation Generator for a Qualitative Diffusion App Designer.\n"
+        "Generate exactly 4 distinct nouns and exactly 4 distinct verbs."
+    )
+    content = out.content if hasattr(out, "content") else out
+    d = json.loads(content)
+    assert "nouns" in d and "verbs" in d
+    assert len(d["nouns"]) == 4 and len(d["verbs"]) == 4
+
+
+chk("CoderMockLLM QDAD foundation returns nouns/verbs JSON", t21)
+
+
+async def t22():
+    out = await CMLL().ainvoke(
+        "You are FeatureAgent_0_1.\nFORWARD DIFFUSION (noise induction):\n"
+        "Embrace controlled qualitative noise."
+    )
+    content = out.content if hasattr(out, "content") else out
+    assert isinstance(content, str)
+    assert "mock feature" in content.lower()
+    assert not content.strip().startswith("{")
+
+
+chk("CoderMockLLM QDAD noise agent returns plain-text feature", t22)
+
+
+async def t23():
+    out = await CMLL().ainvoke(
+        "You are CriticAgent_1_2.\nYou are the inverse of noise induction: "
+        "qualitative reverse diffusion / score matching."
+    )
+    content = out.content if hasattr(out, "content") else out
+    assert isinstance(content, str)
+    assert "refined mock feature" in content.lower()
+
+
+chk("CoderMockLLM QDAD critic agent returns refined feature", t23)
+
+
+async def t24():
+    out = await CMLL().ainvoke(
+        "You are the QDAD Synthesizer Agent for the Qualitative Diffusion App Designer."
+    )
+    content = out.content if hasattr(out, "content") else out
+    assert "# App Build Prompt" in content
+    assert "## High-Level Vision" in content
+
+
+chk("CoderMockLLM QDAD synthesizer returns App Build Prompt", t24)
+
+
+def t25():
+    mock = CMLL()
+    bound = mock.bind(temperature=1.3)
+    assert bound is mock
+
+
+chk("CoderMockLLM.bind(temperature=...) returns self (debug temp path)", t25)
+
+
 for name, status, err in results:
     line = f"  [{status}] {name}"
     if err:

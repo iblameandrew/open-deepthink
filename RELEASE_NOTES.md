@@ -1,3 +1,38 @@
+# Release Notes — `0.1.10`
+
+**Tag:** `0.1.10`
+**Date:** 2026-07-23
+**Tagline:** "Vortex side panels + App Slot Machine debug mode"
+
+## ✨ Headline: Diffusion Vortex panels & Slot Machine simulation
+
+### Diffusion Vortex side panel (from spirits)
+
+* Ported the canvas whirlpool from `spirits/VortexAnimation` into
+  `js/components/vortex-animation.js`
+* **Panel-scoped** (not fullscreen): sits beside chat in a shared
+  `mode-workspace` layout
+* Plays when **App Slot Machine** or **Brainstorm** starts a run
+* Idle placeholder when not spinning; grain + scanlines + label during play
+
+### App Slot Machine debug / simulation mode
+
+* **🚀 Simulation Mode** runs the full QDAD pipeline with `CoderMockLLM`
+* No OpenRouter API key required in debug
+* Fixed QDAD mock matchers (foundation / noise / critic / synthesizer)
+* `CoderMockLLM.bind(temperature=…)` no-ops for `llm_with_temperature`
+* Frontend skips the API-key gate when simulation is checked
+
+### Files
+
+* `js/components/vortex-animation.js` — new
+* `css/theme.css` — `mode-workspace` / vortex panel styles
+* `index.html` — side panels for Slot Machine + Brainstorm; debug UX
+* `app.py` — early debug short-circuit; QDAD mocks
+* `tests/phase7_mocks.py`, `tests/phase11_regression.py` — coverage
+
+---
+
 # Release Notes — `0.1.9`
 
 **Tag:** `0.1.9`

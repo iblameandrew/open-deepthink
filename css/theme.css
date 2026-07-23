@@ -713,11 +713,184 @@ pre[class*="language-"] { border-radius: var(--app-radius-md) !important; backgr
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }
 
+/* ── Mode workspace: vortex side panel + chat (Slot Machine + Brainstorm) ── */
+.mode-workspace {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+  margin-top: 0;
+}
+
+.mode-vortex-section {
+  padding: 0.75rem !important;
+  min-height: 550px;
+  display: flex;
+  flex-direction: column;
+}
+
+.mode-chat-section {
+  min-width: 0;
+}
+
+.mode-vortex-panel-shell {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-height: 480px;
+  height: 100%;
+  border-radius: var(--app-radius-lg);
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--app-glass-border);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.6);
+}
+
+.mode-vortex-idle {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 1.5rem;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(59, 130, 246, 0.08), transparent 55%),
+    radial-gradient(circle at 50% 70%, rgba(220, 38, 38, 0.06), transparent 50%),
+    #050505;
+  transition: opacity 0.45s var(--app-ease);
+}
+
+.mode-vortex-idle.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mode-vortex-idle__glyph {
+  font-size: 1.75rem;
+  color: rgba(255, 255, 255, 0.35);
+  line-height: 1;
+}
+
+.mode-vortex-idle__title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.mode-vortex-idle__hint {
+  font-size: 0.75rem;
+  color: var(--app-text-dim);
+  max-width: 14rem;
+  line-height: 1.4;
+}
+
+/* ── Vortex panel (from spirits VortexAnimation — panel-scoped) ── */
+.vortex-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.65s var(--app-ease), visibility 0.65s var(--app-ease);
+  border-radius: inherit;
+}
+
+.vortex-panel--active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: none;
+}
+
+.vortex-panel--fading {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.vortex-panel__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  mix-blend-mode: screen;
+}
+
+.vortex-panel__grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.15;
+  z-index: 20;
+  background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+  filter: contrast(1.5) brightness(1.5);
+}
+
+.vortex-panel__scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%);
+  background-size: 100% 4px;
+}
+
+.vortex-panel__label {
+  position: relative;
+  z-index: 40;
+  pointer-events: none;
+  padding: 0.85rem 1.25rem;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.85rem;
+}
+
+.vortex-panel__label-text {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+  animation: vortex-label-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes vortex-label-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
 /* ── Responsive ── */
+@media (max-width: 960px) {
+  .mode-workspace {
+    grid-template-columns: 1fr;
+  }
+  .mode-vortex-section {
+    min-height: 280px;
+  }
+  .mode-vortex-panel-shell {
+    min-height: 260px;
+    height: 280px;
+  }
+}
+
 @media (max-width: 768px) {
   body { padding: 1.25rem 1rem 3rem; }
   h1 { font-size: 1.75rem; }
   .section { padding: 1.25rem; border-radius: var(--app-radius-md); }
   .mode-tabs { flex-direction: column; border-radius: var(--app-radius-md); }
   .mode-tab { text-align: center; }
+  .vortex-panel__label { padding: 0.7rem 1rem; }
+  .vortex-panel__label-text { font-size: 0.65rem; letter-spacing: 0.22em; }
 }

@@ -492,7 +492,11 @@ class DistillationMockLLM(Runnable):
 
 
 class CoderMockLLM(Runnable):
-    """A mock LLM for debugging that returns instant, pre-canned CODE responses."""
+    """A mock LLM for debugging that returns instant, pre-canned CODE / QDAD responses."""
+
+    def bind(self, **kwargs):
+        """Ignore temperature / stop kwargs so llm_with_temperature works in debug."""
+        return self
 
     def invoke(self, input_data, config: Optional[RunnableConfig] = None, **kwargs):
         loop = asyncio.get_event_loop()
@@ -652,8 +656,13 @@ Generate your code-focused critique for the team:"""
                     "new_problem": "The authentication API is complete. The new, more progressive problem is to build a scalable, real-time notification system that integrates with it."
                 }
             )
-        elif "you are the qdad foundation generator" in prompt:
+        elif (
+            "you are the qdad foundation generator" in prompt
+            or "qdad foundation generator" in prompt
+        ):
             n_match = re.search(r"exactly\s+(\d+)\s+distinct nouns", prompt)
+            if not n_match:
+                n_match = re.search(r"exactly\s+(\d+)\s+distinct", prompt)
             n = int(n_match.group(1)) if n_match else 4
             nouns = [
                 "canvas",
@@ -680,6 +689,52 @@ Generate your code-focused critique for the team:"""
             while len(verbs) < n:
                 verbs.append(f"verb{len(verbs)}")
             return json.dumps({"nouns": nouns, "verbs": verbs})
+        elif (
+            "you are featureagent_" in prompt
+            or ("featureagent_" in prompt and "forward diffusion" in prompt)
+        ):
+            # Phase 2 noise — plain-text feature (matches qdad_chains noise template)
+            return (
+                "A slightly wild mock feature: ambient focus rituals that glow when the "
+                "writer drifts, with offline-first capture and gentle hallucination of "
+                "related draft fragments that still feel implementable."
+            )
+        elif "you are criticagent_" in prompt or (
+            "criticagent_" in prompt and "reverse diffusion" in prompt
+        ):
+            # Phase 3 denoise — plain-text refined feature
+            return (
+                "A refined mock feature: offline-first focus mode that gently signals "
+                "attention drift, queues soft reminders, and keeps draft fragments "
+                "coherent, useful, and implementable for night-time writers."
+            )
+        elif (
+            "you are the qdad synthesizer agent" in prompt
+            or "qdad synthesizer" in prompt
+        ):
+            # Phase 4 — agentic coding prompt
+            return (
+                "# App Build Prompt\n\n"
+                "## High-Level Vision\n"
+                "A cozy offline-first productivity app for night writers with soft dark mode "
+                "and gentle focus rituals.\n\n"
+                "## Core Features (synthesized & prioritized from the diffusion matrix)\n"
+                "1. Ambient focus timer with soft glow feedback.\n"
+                "2. Offline-first draft capture with local sync queue.\n"
+                "3. Gentle notification rituals that never interrupt deep work.\n"
+                "4. Night-mode writing canvas with distraction dimming.\n\n"
+                "## Technical Architecture Suggestions\n"
+                "- React + local-first storage (IndexedDB / SQLite WASM).\n"
+                "- Optional cloud sync layer later.\n\n"
+                "## UI/UX Direction\n"
+                "- Soft dark palette, low contrast chrome, warm accent glows.\n\n"
+                "## Non-Functional Requirements\n"
+                "- Works fully offline; low battery impact; accessible contrast.\n\n"
+                "## Implementation Notes for the Coding Agent\n"
+                "- Build this as a complete, runnable application.\n"
+                "- Prefer modern, clean tech (React/Next.js + Tailwind, or Streamlit).\n"
+                "- Make it beautiful and immediately usable.\n"
+            )
         elif "generate exactly" in prompt and "verbs" in prompt:
             return "design implement refactor test deploy abstract architect containerize scale secure query"
         elif "generate exactly" in prompt and "expert-level questions" in prompt:
@@ -873,42 +928,6 @@ def get_user(user_id: int):
             return (
                 "You are an evolved QNN expert focused on invariants and falsifiers. "
                 "Diverge or critique per your layer. No production patches."
-            )
-        # --- QDAD / App Slot Machine mocks (foundation handled earlier to beat verb-seed matcher) ---
-        elif "you are featureagent_" in prompt and "embrace noise" in prompt:
-            return (
-                "A slightly wild mock feature: ambient focus rituals that glow when the "
-                "writer drifts, with offline-first capture and gentle hallucination of "
-                "related draft fragments that still feel implementable."
-            )
-        elif "you are criticagent_" in prompt:
-            return (
-                "A refined mock feature: offline-first focus mode that gently signals "
-                "attention drift, queues soft reminders, and keeps draft fragments "
-                "coherent, useful, and implementable for night-time writers."
-            )
-        elif "you are the qdad synthesizer agent" in prompt:
-            return (
-                "# App Build Prompt\n\n"
-                "## High-Level Vision\n"
-                "A cozy offline-first productivity app for night writers with soft dark mode "
-                "and gentle focus rituals.\n\n"
-                "## Core Features (synthesized & prioritized from the diffusion matrix)\n"
-                "1. Ambient focus timer with soft glow feedback.\n"
-                "2. Offline-first draft capture with local sync queue.\n"
-                "3. Gentle notification rituals that never interrupt deep work.\n"
-                "4. Night-mode writing canvas with distraction dimming.\n\n"
-                "## Technical Architecture Suggestions\n"
-                "- React + local-first storage (IndexedDB / SQLite WASM).\n"
-                "- Optional cloud sync layer later.\n\n"
-                "## UI/UX Direction\n"
-                "- Soft dark palette, low contrast chrome, warm accent glows.\n\n"
-                "## Non-Functional Requirements\n"
-                "- Works fully offline; low battery impact; accessible contrast.\n\n"
-                "## Implementation Notes for the Coding Agent\n"
-                "- Build this as a complete, runnable application.\n"
-                "- Prefer modern, clean tech (React/Next.js + Tailwind, or Streamlit).\n"
-                "- Make it beautiful and immediately usable.\n"
             )
         else:
             # For synthesis or fallback
@@ -2669,7 +2688,33 @@ async def build_and_run_graph(payload: dict = Body(...)):
             else []
         )
 
-        if provider == "openrouter":
+        # Debug / simulation mode: use Mock LLM immediately — no API key or network required.
+        is_debug = (
+            params.get("coder_debug_mode") == "true"
+            or params.get("debug_mode") == "true"
+            or params.get("coder_debug_mode") is True
+            or params.get("debug_mode") is True
+        )
+
+        if is_debug:
+            if mode == "app_slot_machine":
+                await log_stream.put(
+                    "--- 🎰 APP SLOT MACHINE DEBUG MODE ENABLED "
+                    "(CoderMockLLM / QDAD — no API cost) 🎰 ---"
+                )
+            else:
+                await log_stream.put(
+                    "--- 💻 CODER DEBUG MODE ENABLED (Mock LLM — no API cost) 💻 ---"
+                )
+            llm = CoderMockLLM()
+            summarizer_llm = CoderMockLLM()
+            synthesis_llm = CoderMockLLM()
+            embeddings_model = None
+            await log_stream.put(
+                "--- ⚠️ Debug Mode: Embeddings skipped. RAG will be skipped. ---"
+            )
+
+        elif provider == "openrouter":
             if not api_key:
                 return JSONResponse(
                     content={"message": "OpenRouter API Key required"}, status_code=400
@@ -2700,6 +2745,25 @@ async def build_and_run_graph(payload: dict = Body(...)):
                 await log_stream.put(
                     f"WARNING: Failed to initialize OpenRouter embeddings: {e}"
                 )
+
+            # Create synthesis LLM if user specified a different model for synthesis
+            synthesis_llm = llm
+            if synthesis_model and synthesis_model != default_agent_model:
+                try:
+                    synthesis_llm = ChatOpenAI(
+                        model=synthesis_model,
+                        openai_api_key=api_key,
+                        openai_api_base="https://openrouter.ai/api/v1",
+                        temperature=0.7,
+                        callbacks=[token_tracker],
+                    )
+                    await log_stream.put(
+                        f"--- Using separate SYNTHESIS model: {synthesis_model} ---"
+                    )
+                except Exception as e:
+                    await log_stream.put(
+                        f"WARNING: Could not init separate synthesis LLM, falling back: {e}"
+                    )
 
         elif provider == "llamacpp":
             # use hoisted + normalized llamacpp_url and model
@@ -2737,34 +2801,8 @@ async def build_and_run_graph(payload: dict = Body(...)):
                     f"WARNING: Failed to initialize LlamaCpp embeddings: {e}"
                 )
 
-        else:
-            return JSONResponse(
-                content={
-                    "message": "Invalid provider. Please select openrouter or llamacpp."
-                },
-                status_code=400,
-            )
-
-        # Create synthesis LLM if user specified a different model for synthesis
-        synthesis_llm = llm
-        if synthesis_model and synthesis_model != default_agent_model:
-            if provider == "openrouter":
-                try:
-                    synthesis_llm = ChatOpenAI(
-                        model=synthesis_model,
-                        openai_api_key=api_key,
-                        openai_api_base="https://openrouter.ai/api/v1",
-                        temperature=0.7,
-                        callbacks=[token_tracker],
-                    )
-                    await log_stream.put(
-                        f"--- Using separate SYNTHESIS model: {synthesis_model} ---"
-                    )
-                except Exception as e:
-                    await log_stream.put(
-                        f"WARNING: Could not init separate synthesis LLM, falling back: {e}"
-                    )
-            elif provider == "llamacpp":
+            synthesis_llm = llm
+            if synthesis_model and synthesis_model != default_agent_model:
                 try:
                     synthesis_llm = ChatLlamaCpp(
                         base_url=llamacpp_url,
@@ -2781,27 +2819,13 @@ async def build_and_run_graph(payload: dict = Body(...)):
                         f"WARNING: Could not init separate synthesis LLM, falling back: {e}"
                     )
 
-        # Custom Debug Mode Logic (Prioritize Mock LLMs but KEEP Embeddings if available)
-        is_debug = (
-            params.get("coder_debug_mode") == "true"
-            or params.get("debug_mode") == "true"
-            or params.get("coder_debug_mode") is True
-            or params.get("debug_mode") is True
-        )
-
-        if is_debug:
-            await log_stream.put(f"--- 💻 CODER DEBUG MODE ENABLED 💻 ---")
-            llm = CoderMockLLM()
-            summarizer_llm = CoderMockLLM()
-            synthesis_llm = CoderMockLLM()
-            if embeddings_model:
-                await log_stream.put(
-                    f"--- 🧠 Debug Mode: Using REAL Embeddings for RAG ---"
-                )
-            else:
-                await log_stream.put(
-                    f"--- ⚠️ Debug Mode: No Embeddings configured. RAG will be skipped. ---"
-                )
+        else:
+            return JSONResponse(
+                content={
+                    "message": "Invalid provider. Please select openrouter or llamacpp."
+                },
+                status_code=400,
+            )
 
     except Exception as e:
         error_message = f"Failed to initialize LLM: {e}. Please ensure the selected provider is configured correctly."

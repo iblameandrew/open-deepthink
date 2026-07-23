@@ -194,8 +194,19 @@
             </div>
         </div>
 
-        <div class="section section--chat-mount">
-            <div id="node-chat-container" style="height: 550px;"></div>
+        <div class="mode-workspace">
+            <div class="section mode-vortex-section">
+                <div class="mode-vortex-panel-shell" id="brainstorm-vortex-panel">
+                    <div class="mode-vortex-idle">
+                        <span class="mode-vortex-idle__glyph">◎</span>
+                        <span class="mode-vortex-idle__title">Diffusion Vortex</span>
+                        <span class="mode-vortex-idle__hint">Spins when a brainstorm run starts</span>
+                    </div>
+                </div>
+            </div>
+            <div class="section section--chat-mount mode-chat-section">
+                <div id="node-chat-container" style="height: 550px;"></div>
+            </div>
         </div>
     </div>
 
@@ -227,7 +238,7 @@
                 </div>
                 <div class="app-control-group">
                     <input type="checkbox" id="qdad_debug_mode">
-                    <label for="qdad_debug_mode">🚀 Simulation Mode (Mock LLM — No Cost)</label>
+                    <label for="qdad_debug_mode" title="Runs the full QDAD pipeline with CoderMockLLM. No API key or network calls.">🚀 Simulation Mode (Mock LLM — No Cost)</label>
                 </div>
             </div>
 
@@ -268,8 +279,19 @@
             </div>
         </div>
 
-        <div class="section section--chat-mount">
-            <div id="qdad-node-chat-container" style="height: 550px;"></div>
+        <div class="mode-workspace">
+            <div class="section mode-vortex-section">
+                <div class="mode-vortex-panel-shell" id="qdad-vortex-panel">
+                    <div class="mode-vortex-idle">
+                        <span class="mode-vortex-idle__glyph">◎</span>
+                        <span class="mode-vortex-idle__title">Diffusion Vortex</span>
+                        <span class="mode-vortex-idle__hint">Spins when a slot-machine run starts</span>
+                    </div>
+                </div>
+            </div>
+            <div class="section section--chat-mount mode-chat-section">
+                <div id="qdad-node-chat-container" style="height: 550px;"></div>
+            </div>
         </div>
 
         <!-- Kept for export / legacy SSE handlers (hidden shell) -->
@@ -323,6 +345,7 @@
     <script src="js/chart.js"></script>
     <script src="js/components/memory-calculator.js"></script>
     <script src="js/components/node-chat.js"></script>
+    <script src="js/components/vortex-animation.js"></script>
     <script>
         const APP_COLORS = {
             user: '#a78bfa',
@@ -1424,9 +1447,11 @@
                     const synthesisModel = localStorage.getItem('synthesis_model') || '';
                     const agentModels = localStorage.getItem('agent_models') || '';
                     const llamacppModel = localStorage.getItem('llamacpp_model') || 'llama-3.2-1b-instruct';
+                    const qdadDebugMode = !!(document.getElementById('qdad_debug_mode')?.checked);
 
-                    if (provider === 'openrouter' && !openrouterApiKey) {
-                        alert('Please save your OpenRouter API key in the settings panel first.');
+                    // Simulation / debug mode uses CoderMockLLM server-side — no API key needed.
+                    if (!qdadDebugMode && provider === 'openrouter' && !openrouterApiKey) {
+                        alert('Please save your OpenRouter API key in the settings panel first.\n\nOr enable Simulation Mode (Mock LLM) to run without a key.');
                         chat.finishStreaming();
                         return;
                     }
@@ -1438,11 +1463,14 @@
                         graphContainer.parentElement.style.display = 'none';
                     }
                     addLogMessage(`<strong>User:</strong> ${message}`, { isHTML: true, color: APP_COLORS.user });
+                    if (qdadDebugMode) {
+                        addLogMessage('<strong>🎰 Simulation Mode:</strong> using Mock LLM (no API cost). Full QDAD pipeline will run with canned responses.', { isHTML: true, color: APP_COLORS.info });
+                    }
 
                     const params = {
                         prompt: message,
                         provider: provider,
-                        api_key: openrouterApiKey,
+                        api_key: openrouterApiKey || (qdadDebugMode ? 'debug-mock-key' : ''),
                         openrouter_model: openrouterModel,
                         llamacpp_url: llamacppUrl,
                         llamacpp_api_key: llamacppApiKey,
@@ -1455,8 +1483,8 @@
                         temperature_scale: parseFloat(document.getElementById('qdad_temperature_scale')?.value) || 1.3,
                         denoising_steps: parseInt(document.getElementById('qdad_denoising_steps')?.value) || 3,
                         noun_verb_temperature: parseFloat(document.getElementById('qdad_noun_verb_temp')?.value) || 0.6,
-                        coder_debug_mode: document.getElementById('qdad_debug_mode')?.checked ? 'true' : 'false',
-                        debug_mode: document.getElementById('qdad_debug_mode')?.checked ? 'true' : 'false',
+                        coder_debug_mode: qdadDebugMode ? 'true' : 'false',
+                        debug_mode: qdadDebugMode ? 'true' : 'false',
                     };
 
                     try {
@@ -1591,6 +1619,22 @@
         }
 
         async function runGraph(payload, endpointUrl, clearLogs = true) {
+            // Vortex side panel for Slot Machine + Brainstorm (panel-scoped, not fullscreen)
+            const mode = (payload && payload.mode) || (payload && payload.params && payload.params.mode) || '';
+            if (typeof VortexAnimation !== 'undefined') {
+                if (mode === 'app_slot_machine') {
+                    VortexAnimation.play({
+                        container: 'qdad-vortex-panel',
+                        label: 'Synthesizing',
+                    });
+                } else if (mode === 'brainstorm') {
+                    VortexAnimation.play({
+                        container: 'brainstorm-vortex-panel',
+                        label: 'Brainstorming',
+                    });
+                }
+            }
+
             if (runButton) {
                 runButton.disabled = true;
                 runButton.textContent = 'Processing...';
