@@ -33,6 +33,8 @@ class GraphState(TypedDict):
     brainstorm_document_context: str
     brainstorm_prior_conversation: str
     brainstorm_problem_summary: str
+    # Qualitative Self-Attention edges (brainstorm mode): agent_id → edge list
+    attention_edges: Annotated[dict, lambda a, b: {**a, **b}]
 
 
 # Legacy static labels kept for import/tests only.

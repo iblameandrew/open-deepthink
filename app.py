@@ -75,6 +75,7 @@ from deepthink.chains import (
 from deepthink.qdad import run_qdad_pipeline
 from deepthink.knowledge_distillation import DistillationGraph
 from deepthink.utils import clean_and_parse_json, execute_code_in_sandbox
+from deepthink.self_attention import compute_self_attention
 
 from langchain_core.callbacks import BaseCallbackHandler, AsyncCallbackHandler
 from langchain_core.outputs import LLMResult
@@ -1348,6 +1349,8 @@ class GraphState(TypedDict):
     brainstorm_document_context: str
     brainstorm_prior_conversation: str
     brainstorm_problem_summary: str
+    # Qualitative Self-Attention (brainstorm): agent_id → list of edge dicts
+    attention_edges: Annotated[dict, lambda a, b: {**a, **b}]
 
 
 def execute_code_in_sandbox(code: str) -> (bool, str):
@@ -1494,6 +1497,8 @@ def create_agent_node(llm, node_id):
         # Brainstorm mode: full QNN layered forward pass (do NOT flatten to original_request).
         # Algorithm mode keeps decomposed_problems (L0) / upstream outputs (L1+).
         brainstorm_context = ""
+        attention_block = ""
+        attention_edge_dicts: List[dict] = []
         json_schema_block = "#Your JSON formatted response:"
         if state.get("mode") == "brainstorm":
             prior_conv = state.get("brainstorm_prior_conversation", "") or ""
@@ -1515,6 +1520,33 @@ def create_agent_node(llm, node_id):
 ---
 """
 
+            # Qualitative Self-Attention (colony QSA analogue):
+            # attend past / non-neighbor neurons — not only previous-layer edges.
+            try:
+                att_edges, attention_block = compute_self_attention(
+                    state, node_id, top_k=5
+                )
+                attention_edge_dicts = [e.to_dict() for e in att_edges]
+                if att_edges:
+                    attended = ", ".join(
+                        f"{e.to_id}({e.strength}/{e.qualitative_distance})"
+                        for e in att_edges
+                    )
+                    await log_stream.put(
+                        f"LOG: [QNN ATTEND] {node_id} self-attention → {len(att_edges)} "
+                        f"non-local past neuron(s): {attended}"
+                    )
+                else:
+                    await log_stream.put(
+                        f"LOG: [QNN ATTEND] {node_id} self-attention → no eligible past neurons yet."
+                    )
+            except Exception as att_err:
+                await log_stream.put(
+                    f"WARNING: [QNN ATTEND] {node_id} self-attention failed: {att_err}"
+                )
+                attention_block = ""
+                attention_edge_dicts = []
+
             if layer_index == 0:
                 await log_stream.put(
                     f"LOG: [QNN FORWARD] {node_id} Layer 0 DIVERGENT pass (epoch {epoch_n})."
@@ -1530,6 +1562,8 @@ def create_agent_node(llm, node_id):
 
 ## Layer 0 Role
 Divergent exploration. Span strategies and mechanisms. Do NOT write production patches or full file diffs.
+
+{attention_block}
 """
             else:
                 await log_stream.put(
@@ -1549,8 +1583,10 @@ Divergent exploration. Span strategies and mechanisms. Do NOT write production p
 Convergent / critical. Critique, refine, reject, or combine upstream outputs. Cite agent_id values.
 Do NOT restate Layer 0. Do NOT write production patches.
 
-## Upstream Layer Outputs
+## Upstream Layer Outputs (graph neighbors — previous layer)
 {json.dumps(prev_layer_outputs, indent=2)}
+
+{attention_block}
 """
 
             json_schema_block = """# Your JSON response (required keys):
@@ -1629,12 +1665,15 @@ Do NOT restate Layer 0. Do NOT write production patches.
         agent_memory_history.append(response_json)
         current_memory[node_id] = agent_memory_history
 
-        return {
+        result_delta = {
             "agent_outputs": {node_id: response_json},
             "memory": {
                 node_id: agent_memory_history
             },  # RETURN DELTA ONLY to avoid race conditions
         }
+        if state.get("mode") == "brainstorm" and attention_edge_dicts:
+            result_delta["attention_edges"] = {node_id: attention_edge_dicts}
+        return result_delta
 
     return agent_node
 
@@ -3438,6 +3477,8 @@ QNN cell: Layer {i} ({layer_role}), Node {j}.
         "brainstorm_prior_conversation": brainstorm_chat_history_str,
         "brainstorm_document_context": brainstorm_document_context,
         "brainstorm_problem_summary": brainstorm_problem_summary_state,
+        # Qualitative Self-Attention edges (brainstorm): filled during forward pass
+        "attention_edges": {},
     }
     initial_state["llm"] = llm
     sessions[session_id] = initial_state

@@ -69,15 +69,17 @@ A QNN is a directed, layered graph of LLM agents with three repeating phases per
 
 1. **Forward Pass** — Problem is decomposed across the topology. Layer 0 runs in parallel. Each subsequent layer receives context from the previous layer and builds deeper analysis. Information flows structurally, not just through a shared chat.
 
-2. **Reflection + Mirror Descent** — After synthesis, the system does not just "critique the answer." It:
+2. **Qualitative Self-Attention (brainstorm)** — Within each epoch, neurons do **not** only see graph neighbors. Each agent runs a colony-style **self-attention** step over past / non-local neurons (earlier layers this epoch that are not the immediate previous layer, plus other agents’ memory from prior epochs). Pairwise qualitative scores (strength + distance) inject a sparse “attended value” block into the prompt — the analogue of \(\mathrm{softmax}(QK^\top/\sqrt{d})\,V\) without MatMul. See [colony / Qualitative Self-Attention](https://github.com/iblameandrew/colony) and `deepthink/self_attention.py`.
+
+3. **Reflection + Mirror Descent** — After synthesis, the system does not just "critique the answer." It:
    - Evaluates which agents struggled vs. succeeded on their specific sub-problems.
    - Extracts attributes and "hard requests" from current personas.
    - Uses a dense-spanner mechanism (or explicit mixing in Distillation) to **rewrite the system prompts, attributes, and skills** of agents for the next round.
    - In Knowledge Distillation mode, literally **spawns evolved child agents** that inherit context memory and replace struggling parents in the live topology.
 
-3. **Problem Reframing** — A dedicated re-framer node looks at the current solution and formulates a *harder, more advanced version* of the problem. The network is then forced to solve the harder problem in the next epoch with its newly evolved agents.
+4. **Problem Reframing** — A dedicated re-framer node looks at the current solution and formulates a *harder, more advanced version* of the problem. The network is then forced to solve the harder problem in the next epoch with its newly evolved agents.
 
-This loop (decompose → structured forward → synthesize → reframe the goal → mutate the thinkers) is repeated for as many epochs as you allocate. The result is compounding depth rather than repeated breadth.
+This loop (decompose → structured forward **+ attend** → synthesize → reframe the goal → mutate the thinkers) is repeated for as many epochs as you allocate. The result is compounding depth rather than repeated breadth.
 
 ---
 
@@ -110,8 +112,22 @@ A chat-first interface that runs the **same QNN deepthink algorithm** as the por
 2. **Seeds** — Verbs + nouns from the problem space (related + far semantic fields), sampled into per-column word-vectors — same spanning DNA as qualitative verb/noun bases  
 
 3. **Personas** — Input-span careers/attributes/skills from those guiding_words (layer 0 diverge; deeper layers converge/critique)  
-4. **Epoch loop** — Layered forward pass → epoch map → Mirror Descent → harder reframe  
+4. **Epoch loop** — Layered forward pass **with qualitative self-attention** → epoch map → Mirror Descent → harder reframe  
 5. **Solution-Space Report** — Divergent strategies with falsifiers and first probes (handoff to edit→run→debug)
+
+#### Self-attention inside the epoch (from colony QSA)
+
+Feed-forward edges only connect a neuron to the **previous layer**. Self-attention adds a second path: each agent scores a capped pool of **non-neighbor past neurons** (skipped earlier layers this epoch + other agents’ multi-epoch memory) and injects the top‑k as a sparse attended-value block.
+
+| Transformer | Brainstorm QSA (`deepthink/self_attention.py`) |
+|-------------|------------------------------------------------|
+| Tokens | QNN neurons (`agent_{layer}_{width}`) |
+| Q / K | Query persona traits vs past solution text |
+| Softmax | Strength buckets `none/low/med/high` + distance `near/mid/far` |
+| V | Excerpt + rationale injected into the agent prompt |
+| Attention matrix | `state["attention_edges"]` (per-agent edge lists) |
+
+Logs: `LOG: [QNN ATTEND] agent_L_W self-attention → k non-local past neuron(s): …`
 
 - **Auto mode**: Complexity estimator recommends a small topology (skill-aligned score bands).
 - **Manual / Massive mode**: Any Layers × Width; spawn a genuine "army" when justified.

@@ -1,3 +1,31 @@
+# Release Notes — `0.1.11`
+
+**Tag:** `0.1.11`
+**Date:** 2026-07-23
+**Tagline:** "Qualitative Self-Attention in Brainstorm mode (colony QSA)"
+
+## ✨ Headline: Non-local past-neuron attention in Brainstorm
+
+Brainstorm QNN neurons no longer only see **graph neighbors** (previous layer).
+Each forward pass runs a **Qualitative Self-Attention** step inspired by
+[colony](https://github.com/iblameandrew/colony)’s AttentionAgent:
+
+* Build a pool of past / non-local neurons (earlier non-adjacent layers this epoch
+  + other agents’ memory from prior epochs)
+* Heuristic pair scoring (shared persona/content lexicon → strength + distance)
+* Top‑k edges inject an attended-value markdown block into the agent prompt
+* Edges stored in `state["attention_edges"]` and logged as `[QNN ATTEND]`
+
+### Files
+
+* `deepthink/self_attention.py` — new QSA module
+* `app.py` — wired into brainstorm `create_agent_node`
+* `deepthink/state.py` — `attention_edges` field
+* `tests/phase_self_attention.py` — unit coverage
+* `README.md` — QNN + Brainstorm self-attention docs
+
+---
+
 # Release Notes — `0.1.10`
 
 **Tag:** `0.1.10`
