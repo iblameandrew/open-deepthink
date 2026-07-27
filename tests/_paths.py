@@ -1,4 +1,5 @@
 """Shared path helpers for the legacy chk()-based test suite."""
+
 from __future__ import annotations
 
 import sys
