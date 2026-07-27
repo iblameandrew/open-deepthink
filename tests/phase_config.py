@@ -96,7 +96,7 @@ def t6():
     assert "deepthink.cli:main" in pyproject or "deepthink.cli" in pyproject
     assert "pydantic-settings" in pyproject
     # Optional web extra should exist; core must not force FastAPI-only install
-    assert 'web' in pyproject or "[web]" in pyproject or "web =" in pyproject
+    assert "web" in pyproject or "[web]" in pyproject or "web =" in pyproject
 
 
 chk("pyproject entry points and package list", t6)
