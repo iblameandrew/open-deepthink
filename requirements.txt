@@ -1,42 +1,34 @@
 # =============================================================================
-# open-deepthink / "army of agents..." dependencies
-# Providers supported: OpenRouter (cloud) and LlamaCpp Server (local only).
-# XAI/Grok and Gemini providers have been removed.
-#
-# Systematic audit:
-# - langchain-community still required only for FAISS (with deprecation note)
-# - All other langchain usage via split packages (langchain-core, -openai, etc.)
-# - Explicit: numpy, pydantic, openai (for local OpenAI-compatible embeddings/llamacpp)
-# - No more xai-sdk / langchain-xai / langchain-google-genai
+# open-deepthink dependencies
+# Preferred install:  pip install -e ".[dev]"
+# This file mirrors core runtime deps for simple `pip install -r` workflows.
+# Providers: OpenRouter (cloud) and LlamaCpp Server (local).
 # =============================================================================
 
 # Web / server
 fastapi
-uvicorn
+uvicorn[standard]
 python-dotenv
 sse-starlette
 python-multipart
 aiohttp
 
-# LangChain ecosystem (split packages - preferred modern layout)
+# LangChain ecosystem
 langchain-core
-langchain-community  # required for FAISS vectorstore only; see deprecation comment in app.py around the import
+langchain-community  # FAISS vectorstore
 langchain-openai
 langchain-text-splitters
 langgraph
-
-# Required by langgraph's `graph.get_graph().draw_ascii()` (used in build_and_run_graph)
-# Without this, the entire /build_and_run_graph endpoint crashes with
-# "Install grandalf to draw graphs: `pip install grandalf`".
 grandalf
 
-# Vector store + ML (FAISS + KMeans in RAPTOR)
+# Vector store + ML
 faiss-cpu
 scikit-learn
 numpy
 
-# Document processing + misc
+# Document processing + config
 pymupdf>=1.24.0
 names
 openai
-pydantic
+pydantic>=2.0
+pydantic-settings>=2.0

@@ -37,12 +37,12 @@ def package_skill(skill_id: str, version: str) -> Path:
     DIST_DIR.mkdir(parents=True, exist_ok=True)
     prefix = SKILLS[skill_id]
     out = DIST_DIR / f"{prefix}-{version}.zip"
-    # Docs + runners + code contract (implementation lives in deepthink.* package)
+    # Docs + on-the-fly template + contract (engine lives in deepthink.*)
     members = [
         "SKILL.md",
         "INSTALL.md",
         "CODE_REFERENCE.md",
-        f"run_{skill_id}.py",
+        "run_template.py",
     ]
     with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name in members:

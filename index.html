@@ -345,7 +345,7 @@
     <script src="js/chart.js"></script>
     <script src="js/components/memory-calculator.js"></script>
     <script src="js/components/node-chat.js"></script>
-    <script src="js/components/vortex-animation.js"></script>
+    <script src="js/components/vortex-animation.js?v=3"></script>
     <script>
         const APP_COLORS = {
             user: '#a78bfa',
@@ -354,6 +354,29 @@
             error: '#ef4444',
             info: '#06b6d4',
         };
+
+        /** True while a brainstorm / slot-machine graph is in flight. */
+        let graphRunActive = false;
+
+        function startVortexForMode(mode) {
+            if (typeof VortexAnimation === 'undefined') return;
+            graphRunActive = true;
+            if (mode === 'app_slot_machine') {
+                VortexAnimation.play({ container: 'qdad-vortex-panel', label: 'Synthesizing' });
+            } else if (mode === 'brainstorm') {
+                VortexAnimation.play({ container: 'brainstorm-vortex-panel', label: 'Brainstorming' });
+            }
+        }
+
+        /** Only stops vortex when a graph run was active (ignores SSE blips). */
+        function endGraphRun(reason) {
+            if (!graphRunActive) return;
+            graphRunActive = false;
+            if (typeof VortexAnimation !== 'undefined') {
+                VortexAnimation.stop({ fade: true });
+            }
+            if (reason) console.log('[vortex] stop:', reason);
+        }
 
         function setAppStatus(el, type) {
             if (!el) return;
@@ -1619,20 +1642,10 @@
         }
 
         async function runGraph(payload, endpointUrl, clearLogs = true) {
-            // Vortex side panel for Slot Machine + Brainstorm (panel-scoped, not fullscreen)
+            // Vortex side panel for Slot Machine + Brainstorm — spins until endGraphRun()
             const mode = (payload && payload.mode) || (payload && payload.params && payload.params.mode) || '';
-            if (typeof VortexAnimation !== 'undefined') {
-                if (mode === 'app_slot_machine') {
-                    VortexAnimation.play({
-                        container: 'qdad-vortex-panel',
-                        label: 'Synthesizing',
-                    });
-                } else if (mode === 'brainstorm') {
-                    VortexAnimation.play({
-                        container: 'brainstorm-vortex-panel',
-                        label: 'Brainstorming',
-                    });
-                }
+            if (mode === 'app_slot_machine' || mode === 'brainstorm') {
+                startVortexForMode(mode);
             }
 
             if (runButton) {
@@ -1671,6 +1684,7 @@
 
                 if (!response.ok) {
                     addLogMessage(`Error: ${result.message}`, { color: 'red' });
+                    endGraphRun('http-error');
                     if (result.traceback) {
                         const pre = document.createElement('pre');
                         pre.style.color = APP_COLORS.error;
@@ -1678,6 +1692,7 @@
                         logContainer.appendChild(pre);
                     }
                 } else if (result.code_solution) {
+                    endGraphRun('code-solution');
 
                     let codeToDisplay = result.code_solution;
 
@@ -1741,17 +1756,25 @@
                     diagnosticChatContainer.classList.add('hidden');
 
                     exportQnnButton.classList.remove('hidden');
+                    endGraphRun('chat-active');
                 } else if (result.message === "Graph started.") {
-                    // Brainstorming mode - graph is running, SSE events will stream updates
+                    // Keep vortex spinning — background graph streams via SSE
                     addLogMessage(`<strong>✅ ${result.message}</strong> Processing via SSE stream...`, { isHTML: true, color: 'lime' });
                     currentSessionId = result.session_id;
+                    // Re-assert run active in case fetch path cleared it
+                    graphRunActive = true;
+                    if (typeof VortexAnimation !== 'undefined' && !VortexAnimation.isPlaying()) {
+                        startVortexForMode(mode);
+                    }
                 } else {
                     addLogMessage(`Error: Unexpected response from server: ${JSON.stringify(result)}`, { color: 'red' });
+                    endGraphRun('unexpected-response');
                     if (graphArchitectureSection) graphArchitectureSection.classList.remove('hidden');
                     if (qnnImportContainer) qnnImportContainer.classList.remove('hidden');
                 }
             } catch (error) {
                 addLogMessage(`A client-side error occurred: ${error.message}`, { color: 'red' });
+                endGraphRun('client-error');
                 if (graphArchitectureSection) graphArchitectureSection.classList.remove('hidden');
                 if (qnnImportContainer) qnnImportContainer.classList.remove('hidden');
             } finally {
@@ -1956,6 +1979,11 @@
 
                     console.log("Parsed answer:", answer);
 
+                    // Intermediate epoch maps: keep vortex. Final reports: stop.
+                    const isIntermediateEpochMap = !!(
+                        answer && typeof answer === 'object' && answer.epoch_map === true
+                    );
+
                     // Route FINAL_ANSWER into the active NodeChat (brainstorm or app slot machine)
                     if (answer.mode === 'app_slot_machine' || (qdadChatInstance && answer.mode !== 'brainstorm' && document.getElementById('app-slot-machine-mode')?.classList.contains('active'))) {
                         let displayText = '';
@@ -1975,8 +2003,8 @@
                         }
                         if (exportQnnButton) exportQnnButton.classList.remove('hidden');
                         addLogMessage(`<strong>✅ QDAD synthesis complete.</strong>`, { isHTML: true, color: 'lime' });
+                        endGraphRun('final-answer-qdad');
                     } else if (answer.mode === 'brainstorm' || nodeChatInstance) {
-                        // Brainstorm Reflection
                         let displayText = '';
                         if (typeof answer === 'object' && answer !== null) {
                             if (answer.proposed_solution) displayText = answer.proposed_solution;
@@ -1985,21 +2013,29 @@
                             displayText = String(answer);
                         }
 
-                        // Prefix with synthesis header
-                        displayText = '🧠 **Synthesis**\n\n' + displayText;
+                        displayText = (isIntermediateEpochMap ? '🧭 **Epoch Map**\n\n' : '🧠 **Synthesis**\n\n') + displayText;
 
                         if (nodeChatInstance) {
                             nodeChatInstance.appendAIMessage(displayText);
-                            // Sync chat history back
                             brainstormChatHistory = nodeChatInstance.getChatHistory();
+                            if (!isIntermediateEpochMap) {
+                                nodeChatInstance.finishStreaming();
+                            }
                         } else {
                             addLogMessage(displayText, { isHTML: true });
                         }
+                        if (!isIntermediateEpochMap) {
+                            endGraphRun('final-answer-brainstorm');
+                        }
+                    } else {
+                        // Unknown shape — treat as terminal so UI doesn't spin forever
+                        endGraphRun('final-answer-other');
                     }
 
                 } catch (e) {
                     console.error("Failed to parse FINAL_ANSWER", e);
                     addLogMessage(`Error parsing final answer: ${e.message}`, { color: 'red' });
+                    endGraphRun('final-answer-parse-error');
                 }
                 addLogMessage(rawMessage);
 
@@ -2030,14 +2066,26 @@
                 if (rawMessage.trim().startsWith(':') || rawMessage.includes('keepalive')) return;
                 if (rawMessage.startsWith('DISTILLATION_LOG:')) return;
                 addLogMessage(rawMessage);
+                // Terminal graph signals only (do NOT match agent SUCCESS logs)
+                const msg = rawMessage.toLowerCase();
+                if (
+                    msg.includes('brainstorm graph execution completed')
+                    || msg.includes('app slot machine (qdad) completed')
+                    || msg.includes('qdad) langgraph execution completed')
+                    || msg.includes('graph background error')
+                    || msg.includes('qdad pipeline error')
+                    || msg === 'success: graph execution completed.'
+                ) {
+                    endGraphRun('log:' + rawMessage.slice(0, 80));
+                }
             }
 
         };
 
         eventSource.onerror = function (err) {
-            console.error("EventSource failed:", err);
-            addLogMessage("Error: Connection to server log stream lost. Please refresh and try again.", { color: 'red' });
-            eventSource.close();
+            // SSE often blips while the graph is still running — never kill the vortex here.
+            console.warn("EventSource error (vortex left running if graph active):", err);
+            addLogMessage("Warning: log stream hiccup — reconnect may be needed; graph may still be running.", { color: 'orange' });
         };
 
         // Legacy diagnostic listeners removed

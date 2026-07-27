@@ -2,7 +2,10 @@
 
 import sys, traceback
 
-sys.path.insert(0, r"C:\Users\def78\smenos\local-deepthink")
+from pathlib import Path
+ROOT = Path(__file__).resolve().parent.parent
+import sys
+sys.path.insert(0, str(ROOT))
 import importlib
 
 mod = importlib.import_module("app")

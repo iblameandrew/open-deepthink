@@ -1,8 +1,9 @@
 """Unit tests for Qualitative Self-Attention (brainstorm QSA)."""
-
+from pathlib import Path
 import sys
 
-sys.path.insert(0, r".")
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 
 from deepthink.self_attention import (
     AttentionCandidate,

@@ -17,39 +17,28 @@ Copy the whole skill folder (not only `SKILL.md`):
 
 | File | Role |
 |------|------|
-| `SKILL.md` | Procedure + when to invoke |
-| `CODE_REFERENCE.md` | Parameter contract + library API |
-| `run_qnn.py` | CLI entrypoint the harness should execute |
+| `SKILL.md` | Procedure + **materialize-then-run** protocol (+ Appendix A) |
+| `run_template.py` | Source the agent writes to `.skill-runs/run_qnn.py` |
+| `CODE_REFERENCE.md` | Parameter table |
 | `INSTALL.md` | This file |
 
 ### Grok (user-global)
 
 ```bash
 mkdir -p ~/.grok/skills/qnn
-cp SKILL.md CODE_REFERENCE.md run_qnn.py INSTALL.md ~/.grok/skills/qnn/
+cp SKILL.md CODE_REFERENCE.md run_template.py INSTALL.md ~/.grok/skills/qnn/
 ```
 
 Windows PowerShell:
 
 ```powershell
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.grok\skills\qnn"
-Copy-Item SKILL.md,CODE_REFERENCE.md,run_qnn.py,INSTALL.md "$env:USERPROFILE\.grok\skills\qnn\"
+Copy-Item SKILL.md,CODE_REFERENCE.md,run_template.py,INSTALL.md "$env:USERPROFILE\.grok\skills\qnn\"
 ```
 
-### Runtime for real code (required for runners)
-
-```bash
-# Clone or set root so deepthink.qnn is importable
-export OPEN_DEEPTHINK_ROOT=/path/to/open-deepthink
-# optional: pip install -e "$OPEN_DEEPTHINK_ROOT"
-```
-
-Without the package, the agent may still *simulate* the skill procedure; with
-it, prefer:
-
-```bash
-python $OPEN_DEEPTHINK_ROOT/skills/qnn/run_qnn.py --prompt "…" --provider openrouter
-```
+On invoke, the agent **builds** `.skill-runs/run_qnn.py` from `run_template.py`
+and runs it. The script discovers the open-deepthink package by walking the
+workspace tree (optional: `OPEN_DEEPTHINK_ROOT`).
 
 ## 2. Invoke
 

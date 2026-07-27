@@ -5,7 +5,10 @@ This file pins every bug-fix so they cannot silently regress.
 
 import sys, asyncio, json, os, tempfile, re
 
-sys.path.insert(0, r"C:\Users\def78\smenos\local-deepthink")
+from pathlib import Path
+ROOT = Path(__file__).resolve().parent.parent
+import sys
+sys.path.insert(0, str(ROOT))
 import importlib
 
 app_mod = importlib.import_module("app")
@@ -231,7 +234,7 @@ chk("BUG-7 regression: clean_and_parse_json handles Windows backslash paths", r7
 # ============================================================
 def r8():
     with open(
-        r"C:\Users\def78\smenos\local-deepthink\app.py", "r", encoding="utf-8"
+        str(ROOT.joinpath('app.py')), "r", encoding="utf-8"
     ) as f:
         text = f.read()
     # No more "Sesion" typo
@@ -252,7 +255,7 @@ chk("BUG-8/9 regression: stray print() removed, 'Sesion' typo fixed", r8)
 # ============================================================
 def r10():
     with open(
-        r"C:\Users\def78\smenos\local-deepthink\.gitignore", "r", encoding="utf-8"
+        str(ROOT.joinpath('.gitignore')), "r", encoding="utf-8"
     ) as f:
         text = f.read()
     assert "venv/" in text or ".venv/" in text
@@ -272,18 +275,21 @@ def r11():
 
     assert __version__
     assert __release_tag__
-    assert "0.0.3" in __version__, f"Expected 0.0.3 in version, got {__version__}"
+    # Semver-ish: major.minor.patch (optional suffix)
+    assert re.match(r"^\d+\.\d+\.\d+", __version__), (
+        f"Expected semver version, got {__version__}"
+    )
 
 
-chk("__version__ metadata present (0.0.3-beta)", r11)
+chk("__version__ metadata present (semver)", r11)
 
 
 # ============================================================
 # pyproject.toml exists
 # ============================================================
 def r12():
-    assert os.path.exists(r"C:\Users\def78\smenos\local-deepthink\pyproject.toml")
-    with open(r"C:\Users\def78\smenos\local-deepthink\pyproject.toml") as f:
+    assert os.path.exists(str(ROOT.joinpath('pyproject.toml')))
+    with open(str(ROOT.joinpath('pyproject.toml'))) as f:
         text = f.read()
     assert "open-deepthink" in text
     assert "grandalf" in text

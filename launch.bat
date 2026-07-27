@@ -1,33 +1,30 @@
 @echo off
 echo ===================================================
-echo   NOA DeepThink Launcher
+echo   open-deepthink Launcher
 echo ===================================================
 echo.
 
-echo [1/3] Installing/Updating dependencies...
-pip install -r requirements.txt
+echo [1/2] Installing/Updating dependencies (editable)...
+pip install -e .
 if %errorlevel% neq 0 (
     echo.
-    echo [ERROR] Failed to install dependencies.
-    pause
-    exit /b %errorlevel%
+    echo [ERROR] Failed to install package. Falling back to requirements.txt...
+    pip install -r requirements.txt
+    if %errorlevel% neq 0 (
+        echo [ERROR] Dependency install failed.
+        pause
+        exit /b %errorlevel%
+    )
 )
 
 echo.
-echo [2/3] Committing and pushing changes to Git...
-git add .
-git commit -m "Auto-commit before launch"
-git push
-if %errorlevel% neq 0 (
-    echo.
-    echo [WARNING] Git push failed. Proceeding with launch anyway...
-) else (
-    echo [SUCCESS] Git changes pushed.
-)
-
-echo.
-echo [3/3] Launching NOA App...
+echo [2/2] Launching open-deepthink...
 echo Access the app at: http://localhost:8000
+echo Tip: copy .env.example to .env and set OPENROUTER_API_KEY
 echo.
-python app.py
+python -m deepthink
+if %errorlevel% neq 0 (
+    echo Module entry failed; trying app.py ...
+    python app.py
+)
 pause

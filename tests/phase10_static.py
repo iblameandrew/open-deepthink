@@ -2,7 +2,10 @@
 
 import sys, os, ast, re, json, importlib.util, traceback
 
-sys.path.insert(0, r"C:\Users\def78\smenos\local-deepthink")
+from pathlib import Path
+ROOT = Path(__file__).resolve().parent.parent
+import sys
+sys.path.insert(0, str(ROOT))
 
 results = []
 
@@ -21,7 +24,7 @@ def chk(name, fn):
 def t1():
     import py_compile
 
-    for root, _, files in os.walk(r"C:\Users\def78\smenos\local-deepthink"):
+    for root, _, files in os.walk(str(ROOT)):
         # Skip venv
         if (
             "venv" in root
@@ -56,7 +59,7 @@ chk("app.py imports without error", t2)
 # 3) README mentions all expected features
 def t3():
     with open(
-        r"C:\Users\def78\smenos\local-deepthink\README.md", "r", encoding="utf-8"
+        str(ROOT.joinpath('README.md')), "r", encoding="utf-8"
     ) as f:
         text = f.read()
     required = [
@@ -78,7 +81,7 @@ chk("README documents all major features", t3)
 # 4) requirements.txt has all needed deps
 def t4():
     with open(
-        r"C:\Users\def78\smenos\local-deepthink\requirements.txt", "r", encoding="utf-8"
+        str(ROOT.joinpath('requirements.txt')), "r", encoding="utf-8"
     ) as f:
         text = f.read()
     required = [
@@ -111,7 +114,7 @@ chk("requirements.txt has all required deps", t4)
 # 5) launch.bat is well-formed
 def t5():
     with open(
-        r"C:\Users\def78\smenos\local-deepthink\launch.bat", "r", encoding="utf-8"
+        str(ROOT.joinpath('launch.bat')), "r", encoding="utf-8"
     ) as f:
         text = f.read()
     assert "pip install" in text
@@ -124,7 +127,7 @@ chk("launch.bat has install + run commands", t5)
 # 6) index.html has required structure
 def t6():
     with open(
-        r"C:\Users\def78\smenos\local-deepthink\index.html", "r", encoding="utf-8"
+        str(ROOT.joinpath('index.html')), "r", encoding="utf-8"
     ) as f:
         text = f.read()
     # Should have a title and key UI elements
@@ -138,19 +141,21 @@ chk("index.html has expected structure", t6)
 # 7) js/components/node-chat.js exists
 def t7():
     assert os.path.exists(
-        r"C:\Users\def78\smenos\local-deepthink\js\components\node-chat.js"
+        str(ROOT.joinpath('js', 'components', 'node-chat.js'))
     )
 
 
 chk("js/components/node-chat.js exists", t7)
 
 
-# 8) .env exists (gitignored but referenced in app)
+# 8) Env template exists; optional local .env for secrets (gitignored)
 def t8():
-    assert os.path.exists(r"C:\Users\def78\smenos\local-deepthink\.env")
+    has_env = os.path.exists(str(ROOT.joinpath(".env")))
+    has_example = os.path.exists(str(ROOT.joinpath(".env.example")))
+    assert has_env or has_example, "Need .env or .env.example for configuration docs"
 
 
-chk(".env file exists", t8)
+chk(".env or .env.example exists", t8)
 
 
 # 9) GraphState consistency check between app.py and deepthink/state.py
@@ -178,7 +183,7 @@ chk("app.GraphState includes brainstorm fields from deepthink.state.GraphState",
 # 10) Static check: app.py has no obvious syntax issues that would only show at runtime
 def t10():
     with open(
-        r"C:\Users\def78\smenos\local-deepthink\app.py", "r", encoding="utf-8"
+        str(ROOT.joinpath('app.py')), "r", encoding="utf-8"
     ) as f:
         text = f.read()
     # Check for `import X` followed by no usage
@@ -201,7 +206,7 @@ chk("app.py TODO/FIXME audit (informational)", t10)
 # 11) Check the unused import: in agent_chains.py and brainstorm_chains.py
 def t11():
     with open(
-        r"C:\Users\def78\smenos\local-deepthink\app.py", "r", encoding="utf-8"
+        str(ROOT.joinpath('app.py')), "r", encoding="utf-8"
     ) as f:
         text = f.read()
     # import re
@@ -234,19 +239,30 @@ def inspect_getsource(obj):
     return inspect.getsource(obj)
 
 
-# 13) Test .env doesn't have real secrets (just template)
+# 13) Test env files don't embed real secrets (template-safe)
 def t13():
-    with open(
-        r"C:\Users\def78\smenos\local-deepthink\.env", "r", encoding="utf-8"
-    ) as f:
-        text = f.read()
-    # Check that it doesn't accidentally contain a real API key (long random string)
-    # OpenRouter keys are sk-or-... typically
-    lines = [l for l in text.splitlines() if "=" in l and not l.strip().startswith("#")]
-    for line in lines:
-        val = line.split("=", 1)[1].strip().strip("\"'")
-        if "sk-or-" in val or "sk-" in val and len(val) > 20:
-            print(f"  WARN: .env may contain real API key: {line}")
+    candidates = []
+    for name in (".env", ".env.example"):
+        p = ROOT.joinpath(name)
+        if p.is_file():
+            candidates.append(p)
+    assert candidates, "No .env or .env.example to audit"
+    for path in candidates:
+        text = path.read_text(encoding="utf-8")
+        lines = [
+            l
+            for l in text.splitlines()
+            if "=" in l and not l.strip().startswith("#")
+        ]
+        for line in lines:
+            val = line.split("=", 1)[1].strip().strip("\"'")
+            if ("sk-or-" in val or (val.startswith("sk-") and len(val) > 20)):
+                # Fail hard in CI if a real-looking key is committed
+                if path.name == ".env.example":
+                    raise AssertionError(
+                        f".env.example must not contain secrets: {line}"
+                    )
+                print(f"  WARN: {path.name} may contain real API key: {line}")
 
 
 chk(".env audit (no real keys)", t13)
@@ -405,7 +421,7 @@ chk(
 # 20) Check for any `print` statements that should be using log_stream
 def t20():
     with open(
-        r"C:\Users\def78\smenos\local-deepthink\app.py", "r", encoding="utf-8"
+        str(ROOT.joinpath('app.py')), "r", encoding="utf-8"
     ) as f:
         text = f.read()
     # Count print() calls outside MockLLM classes
@@ -420,7 +436,7 @@ chk("app.py uses log_stream (informational)", t20)
 # 21) Make sure tests directory is not in the wheel/install
 def t21():
     # No actual setup.py to check, just verify tests don't have side effects
-    for f in os.listdir(r"C:\Users\def78\smenos\local-deepthink\tests"):
+    for f in os.listdir(str(ROOT.joinpath('tests'))):
         if f.endswith(".py"):
             # Just verify it imports without side effects (we did this already)
             pass
@@ -437,7 +453,7 @@ def t22():
         ["git", "status", "--porcelain"],
         capture_output=True,
         text=True,
-        cwd=r"C:\Users\def78\smenos\local-deepthink",
+        cwd=str(ROOT),
     )
     # Just check that git works
     assert res.returncode == 0
@@ -449,7 +465,7 @@ chk("git is functional in repo", t22)
 # 23) Memory calculator and unlimited QNN dimensions in index.html
 def t23():
     with open(
-        r"C:\Users\def78\smenos\open-deepthink\index.html", "r", encoding="utf-8"
+        str(ROOT.joinpath('index.html')), "r", encoding="utf-8"
     ) as f:
         html = f.read()
     assert "memory-calculator.js" in html
@@ -480,7 +496,7 @@ chk("build_and_run_graph supports app_slot_machine / QDAD path", t24)
 # 25) CHANGELOG/RELEASE file - is there one?
 def t25():
     with open(
-        r"C:\Users\def78\smenos\open-deepthink\RELEASE_NOTES.md", "r", encoding="utf-8"
+        str(ROOT.joinpath('RELEASE_NOTES.md')), "r", encoding="utf-8"
     ) as f:
         text = f.read()
     assert "0.1.2" in text

@@ -13,15 +13,14 @@ body are examples — adapt them to your runtime.
 | **qnn** | [`qnn/SKILL.md`](./qnn/SKILL.md) | Sticky debug loops **or** features that need wider depth — layered strategy maps from problem-space **verbs + nouns** |
 | **qdad** | [`qdad/SKILL.md`](./qdad/SKILL.md) | Vague Midjourney-style **app vibe** → concrete **agentic coding prompt** via **Qualitative Diffusion** (noun×verb grid, noise, critic reverse diffusion, synthesize) |
 
-| Technique | Skill | Output | Code entrypoint |
-|-----------|-------|--------|-----------------|
-| Qualitative Neural Network | `/qnn` | Solution-space / strategy map | `deepthink.qnn.run_qnn_pipeline` · [`qnn/run_qnn.py`](./qnn/run_qnn.py) · [`qnn/CODE_REFERENCE.md`](./qnn/CODE_REFERENCE.md) |
-| Qualitative Diffusion | `/qdad` | App Build Prompt | `deepthink.qdad.run_qdad_pipeline` · [`qdad/run_qdad.py`](./qdad/run_qdad.py) · [`qdad/CODE_REFERENCE.md`](./qdad/CODE_REFERENCE.md) |
+| Technique | Skill | Output | How the harness runs it |
+|-----------|-------|--------|-------------------------|
+| Qualitative Neural Network | `/qnn` | Solution-space map | **Write** `.skill-runs/run_qnn.py` from `run_template.py`, then execute |
+| Qualitative Diffusion | `/qdad` | App Build Prompt | **Write** `.skill-runs/run_qdad.py` from `run_template.py`, then execute |
 
-**Harness rule:** if `deepthink` is importable (repo / `OPEN_DEEPTHINK_ROOT` /
-`pip install -e .`), **run the CLI or library API** with the parameter
-tables in each `CODE_REFERENCE.md`. Only simulate the markdown procedure when
-the package is unavailable.
+**Harness rule:** on every invoke, **materialize** the runner into the workspace
+and run it (do not ask the user to find a pre-installed script). Templates live
+in each skill folder; engines are `deepthink.qnn` / `deepthink.qdad`.
 
 ## Quick import
 

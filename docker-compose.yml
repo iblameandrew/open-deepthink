@@ -1,0 +1,48 @@
+# Full open-deepthink stack (UI + backend)
+#
+#   docker compose up --build
+#   open http://localhost:8000
+#
+# Optional: copy .env.example → .env and set OPENROUTER_API_KEY
+
+services:
+  open-deepthink:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: open-deepthink:local
+    container_name: open-deepthink
+    ports:
+      - "${PORT:-8000}:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8000"
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-openrouter}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-stepfun/step-3.5-flash:free}
+      LLAMACPP_BASE_URL: ${LLAMACPP_BASE_URL:-http://host.docker.internal:8080/v1}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DISTILLATION_OUTPUT_DIR: /app/distillation_output
+      STATE_DIR: /app/.deepthink-state
+    volumes:
+      # Persist distillation datasets + topology archives
+      - ./distillation_output:/app/distillation_output
+      # Optional run checkpoints / exports
+      - ./.deepthink-state:/app/.deepthink-state
+      # Live-edit portable skills without rebuild
+      - ./skills:/app/skills
+      # Optional: mount local config
+      # - ./deepthink.toml:/app/deepthink.toml:ro
+    extra_hosts:
+      # Reach llama.cpp on the host from the container (Docker Desktop)
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s

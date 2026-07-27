@@ -8,16 +8,17 @@ dynamic = ["version"]
 description = "Democratizing Deep Algorithmic Thought - a Qualitative Neural Network engine for local LLMs"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = { file = "LICENSE" }
 authors = [
     { name = "iblameandrew" }
 ]
 keywords = [
-    "ai", "multi-agent", "qnn", "langgraph", "llm",
+    "ai", "multi-agent", "qnn", "qdad", "langgraph", "llm",
     "openrouter", "llamacpp", "knowledge-distillation",
+    "qualitative-diffusion", "mirror-descent",
 ]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -25,10 +26,11 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Framework :: FastAPI",
 ]
 dependencies = [
     "fastapi",
-    "uvicorn",
+    "uvicorn[standard]",
     "python-dotenv",
     "sse-starlette",
     "python-multipart",
@@ -45,21 +47,87 @@ dependencies = [
     "pymupdf>=1.24.0",
     "names",
     "openai",
-    "pydantic",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.6.0",
+    "mypy>=1.8.0",
+    "types-requests",
+    "httpx",  # FastAPI TestClient
+]
+skills = [
+    # Same as core today — reserved for skill-only lean installs later
+]
+ui = [
+    # Web stack is currently part of core; group kept for forward compatibility
+]
+all = [
+    "open-deepthink[dev]",
 ]
 
 [project.urls]
 "Homepage" = "https://github.com/iblameandrew/open-deepthink"
+"Repository" = "https://github.com/iblameandrew/open-deepthink"
 "Issues" = "https://github.com/iblameandrew/open-deepthink/issues"
+"Changelog" = "https://github.com/iblameandrew/open-deepthink/blob/main/RELEASE_NOTES.md"
 
-[tool.setuptools]
-packages = [
-    "deepthink",
-    "deepthink.chains",
-    "deepthink.models",
-    "deepthink.nodes",
-    "deepthink.distillation",
-]
+[project.scripts]
+open-deepthink = "deepthink.cli:main"
+deepthink = "deepthink.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["deepthink*"]
+exclude = ["tests*", "dist*", "terminals*", ".skill-runs*", ".grok*"]
 
 [tool.setuptools.dynamic]
 version = { attr = "deepthink.__version__" }
+
+[tool.setuptools.package-data]
+deepthink = ["py.typed"]
+
+# ---------------------------------------------------------------------------
+# Tooling
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+src = ["deepthink", "tests", "app.py"]
+extend-exclude = ["dist", "distillation_output", ".skill-runs", "terminals"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "W",   # pycodestyle warnings
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line length — handled softly; many prompts are long
+    "E402",  # module level import not at top — app.py path setup
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F401", "F841", "E402"]
+"app.py" = ["E402", "F401"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_return_any = false
+check_untyped_defs = false
+disallow_untyped_defs = false
+follow_imports = "skip"
+# Phase 1: gradual typing — only hard-fail on the new config surface
+files = ["deepthink/config.py", "deepthink/cli.py", "deepthink/__main__.py"]
+
+[tool.pytest.ini_options]
+# Legacy suite uses custom chk() scripts; CI invokes tests/run_all.py
+testpaths = ["tests"]
+python_files = ["phase*.py"]

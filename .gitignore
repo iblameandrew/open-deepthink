@@ -26,6 +26,10 @@ distillation_output/
 # Local data and secrets
 .env
 *.env
+!.env.example
+
+# Runtime state
+.deepthink-state/
 
 # OS junk
 .DS_Store

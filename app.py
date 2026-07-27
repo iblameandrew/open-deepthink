@@ -125,9 +125,14 @@ class TokenUsageTracker(AsyncCallbackHandler):
 
 load_dotenv()
 # Only OpenRouter and LlamaCpp server providers are supported.
-# API keys are provided via the UI (stored in browser localStorage) or params.
+# API keys: UI params (per-request) take precedence; otherwise Settings /
+# environment (OPENROUTER_API_KEY). Never hard-code secrets.
 
-app = FastAPI(title="open-deepthink")
+from deepthink.config import get_settings  # noqa: E402
+
+_settings = get_settings()
+
+app = FastAPI(title="open-deepthink", version=__import__("deepthink").__version__)
 app.mount("/js", StaticFiles(directory="js"), name="js")
 app.mount("/css", StaticFiles(directory="css"), name="css")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -1803,6 +1808,8 @@ def create_synthesis_node(llm):
                 await log_stream.put(
                     f"SUCCESS: [QNN] Intermediate epoch map ready (epoch {state['epoch']})."
                 )
+                # Stream epoch map for UI; epoch_map=true keeps the diffusion vortex spinning
+                await log_stream.put(f"FINAL_ANSWER: {json.dumps(final_solution)}")
                 return {
                     "final_solution": final_solution,
                     "previous_solution": epoch_map_str,
@@ -1842,7 +1849,8 @@ def create_synthesis_node(llm):
                 f"LOG: [DEBUG] Emitting FINAL_ANSWER token to frontend. Solution length: {len(final_solution_str)}"
             )
             await log_stream.put("SUCCESS: [QNN] Brainstorm Solution-Space Report complete.")
-            await log_stream.put(f"FINAL_ANSWER: {json.dumps(final_solution_str)}")
+            # Emit full dict so frontend can read mode / epoch_map and stop the vortex correctly
+            await log_stream.put(f"FINAL_ANSWER: {json.dumps(final_solution)}")
 
         else:
             # Algorithm / Code Synthesis — uses `last_layer_outputs` (agent_outputs).
@@ -2700,20 +2708,22 @@ async def build_and_run_graph(payload: dict = Body(...)):
 
     try:
         # Determine Provider - only OpenRouter and LlamaCpp supported
-        provider = params.get("provider", "openrouter")
-        api_key = params.get("api_key", "")
+        # Settings / env provide defaults; request params override (backward compatible).
+        cfg = get_settings()
+        provider = params.get("provider", cfg.default_provider) or cfg.default_provider
+        api_key = (
+            params.get("api_key", "")
+            or cfg.resolved_api_key()
+            or ""
+        )
 
         # Hoist common config and model choices for per-agent / synthesis support (visible in all branches)
-        openrouter_model = params.get("openrouter_model", "stepfun/step-3.5-flash:free")
-        llamacpp_url = params.get("llamacpp_url", "http://localhost:8080/v1")
-        llamacpp_model = params.get("llamacpp_model", "llama-3.2-1b-instruct")
+        openrouter_model = params.get("openrouter_model", cfg.openrouter_model)
+        llamacpp_url = params.get("llamacpp_url", cfg.llamacpp_base_url)
+        llamacpp_model = params.get("llamacpp_model", cfg.llamacpp_model)
         # normalize llamacpp url early
-        llamacpp_url = llamacpp_url.rstrip("/")
-        llamacpp_url = llamacpp_url.replace("/chat/completions", "")
-        llamacpp_url = llamacpp_url.rstrip("/")
-        if not llamacpp_url.endswith("/v1"):
-            llamacpp_url = llamacpp_url + "/v1"
-        llamacpp_api_key = "no-key-required"
+        llamacpp_url = cfg.normalize_llamacpp_url(llamacpp_url)
+        llamacpp_api_key = params.get("llamacpp_api_key", cfg.llamacpp_api_key) or cfg.llamacpp_api_key
 
         default_agent_model = (
             openrouter_model if provider == "openrouter" else llamacpp_model
@@ -2763,17 +2773,17 @@ async def build_and_run_graph(payload: dict = Body(...)):
             llm = ChatOpenAI(
                 model=default_agent_model,
                 openai_api_key=api_key,
-                openai_api_base="https://openrouter.ai/api/v1",
-                temperature=0.7,
+                openai_api_base=cfg.openrouter_base_url,
+                temperature=cfg.temperature,
                 callbacks=[token_tracker],
             )
             summarizer_llm = llm
             # Use OpenAIEmbeddings with OpenRouter base URL (works for many OpenRouter embedding models)
             try:
                 embeddings_model = OpenAIEmbeddings(
-                    model="google/gemini-embedding-001",
+                    model=cfg.openrouter_embedding_model,
                     openai_api_key=api_key,
-                    openai_api_base="https://openrouter.ai/api/v1",
+                    openai_api_base=cfg.openrouter_base_url,
                     check_embedding_ctx_length=False,
                 )
                 await log_stream.put(
@@ -2792,8 +2802,8 @@ async def build_and_run_graph(payload: dict = Body(...)):
                     synthesis_llm = ChatOpenAI(
                         model=synthesis_model,
                         openai_api_key=api_key,
-                        openai_api_base="https://openrouter.ai/api/v1",
-                        temperature=0.7,
+                        openai_api_base=cfg.openrouter_base_url,
+                        temperature=cfg.temperature,
                         callbacks=[token_tracker],
                     )
                     await log_stream.put(
@@ -2811,24 +2821,19 @@ async def build_and_run_graph(payload: dict = Body(...)):
                 base_url=llamacpp_url,
                 api_key=llamacpp_api_key,
                 model=default_agent_model,
-                temperature=0.7,
-                max_tokens=4096,
+                temperature=cfg.temperature,
+                max_tokens=cfg.max_tokens,
             )
             summarizer_llm = llm
             # Use OpenAIEmbeddings pointing to local server (assumes embedding capable server)
-            llamacpp_emb_url = params.get(
-                "llamacpp_embedding_url", "http://localhost:8080/v1"
+            llamacpp_emb_url = cfg.normalize_llamacpp_url(
+                params.get("llamacpp_embedding_url", cfg.llamacpp_embedding_url)
             )
-            llamacpp_emb_url = llamacpp_emb_url.rstrip("/")
-            llamacpp_emb_url = llamacpp_emb_url.replace("/chat/completions", "")
-            llamacpp_emb_url = llamacpp_emb_url.rstrip("/")
-            if not llamacpp_emb_url.endswith("/v1"):
-                llamacpp_emb_url = llamacpp_emb_url + "/v1"
             try:
                 embeddings_model = OpenAIEmbeddings(
-                    model="text-embedding-nomic-embed-text-v1.5",  # Arbitrary model name for local server
+                    model=cfg.llamacpp_embedding_model,
                     openai_api_base=llamacpp_emb_url,
-                    openai_api_key="sk-no-key-required",
+                    openai_api_key=llamacpp_api_key or "sk-no-key-required",
                     check_embedding_ctx_length=False,
                 )
                 await log_stream.put(
@@ -2847,8 +2852,8 @@ async def build_and_run_graph(payload: dict = Body(...)):
                         base_url=llamacpp_url,
                         api_key=llamacpp_api_key,
                         model=synthesis_model,
-                        temperature=0.7,
-                        max_tokens=4096,
+                        temperature=cfg.temperature,
+                        max_tokens=cfg.max_tokens,
                     )
                     await log_stream.put(
                         f"--- Using separate SYNTHESIS model: {synthesis_model} ---"
@@ -4593,4 +4598,5 @@ async def log_broadcaster_worker():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    _cfg = get_settings()
+    uvicorn.run(app, host=_cfg.host, port=_cfg.port)

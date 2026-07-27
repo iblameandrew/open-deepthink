@@ -14,4 +14,14 @@ __all__ = [
     "execute_code_in_sandbox",
     "GraphState",
     "BRAINSTORM_EXPERTS",
+    "get_settings",
 ]
+
+
+def __getattr__(name: str):
+    """Lazy export for Settings to avoid import cycles at package load."""
+    if name == "get_settings":
+        from .config import get_settings
+
+        return get_settings
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

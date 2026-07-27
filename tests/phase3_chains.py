@@ -2,7 +2,10 @@
 
 import sys, traceback, asyncio
 
-sys.path.insert(0, r"C:\Users\def78\smenos\local-deepthink")
+from pathlib import Path
+ROOT = Path(__file__).resolve().parent.parent
+import sys
+sys.path.insert(0, str(ROOT))
 from langchain_core.runnables import Runnable
 from langchain_core.messages import AIMessage
 

@@ -1,3 +1,31 @@
+# Release Notes — Phase 1 production foundations (unreleased)
+
+**Tagline:** "Installable, configurable, CI-backed open-deepthink"
+
+### Packaging & license
+* MIT `LICENSE` file at repo root
+* Modern `pyproject.toml`: correct package discovery (`qnn`, `qdad`), optional `[dev]`, console scripts `open-deepthink` / `deepthink`
+* `python -m deepthink` and `pip install -e ".[dev]"` entry points
+* `Dockerfile` + `docker-compose.yml` with volumes for state and skills
+
+### Configuration
+* `deepthink/config.py` — Pydantic Settings (`.env`, env vars, optional TOML)
+* `.env.example` — documented keys; no secrets committed
+* App defaults (models, temperatures, llama.cpp URL) read from Settings; UI params still override
+
+### CI & tests
+* GitHub Actions: ruff + mypy (typed surface) + full phase suite on PR
+* Docker image build/push on version tags
+* Portable test paths (no machine-local absolute paths)
+* `python tests/run_all.py` runner; new `phase_config.py`
+* 230+ checks green without API keys
+
+### Operator UX
+* `launch.bat` no longer auto-commits/pushes; installs editable package
+* README quick start updated for install / Docker / config
+
+---
+
 # Release Notes — `0.1.12`
 
 **Tag:** `0.1.12`

@@ -1,5 +1,8 @@
 import sys, traceback
-sys.path.insert(0, r"C:\Users\def78\smenos\local-deepthink")
+from pathlib import Path
+ROOT = Path(__file__).resolve().parent.parent
+import sys
+sys.path.insert(0, str(ROOT))
 from deepthink.utils import clean_and_parse_json, execute_code_in_sandbox
 results = []
 def chk(name, fn):

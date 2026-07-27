@@ -11,34 +11,27 @@ and synthesis — without needing the open-deepthink server.
 
 | File | Role |
 |------|------|
-| `SKILL.md` | Procedure + philosophy |
-| `CODE_REFERENCE.md` | Parameter contract + `run_qdad_pipeline` API |
-| `run_qdad.py` | CLI the harness should execute |
+| `SKILL.md` | Procedure + **materialize-then-run** protocol (+ Appendix A) |
+| `run_template.py` | Source the agent writes to `.skill-runs/run_qdad.py` |
+| `CODE_REFERENCE.md` | Parameter table |
 | `INSTALL.md` | This file |
 
 ### Grok Build / Grok agent (user-global)
 
 ```bash
 mkdir -p ~/.grok/skills/qdad
-cp SKILL.md CODE_REFERENCE.md run_qdad.py INSTALL.md ~/.grok/skills/qdad/
+cp SKILL.md CODE_REFERENCE.md run_template.py INSTALL.md ~/.grok/skills/qdad/
 ```
 
 Windows PowerShell:
 
 ```powershell
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.grok\skills\qdad"
-Copy-Item SKILL.md,CODE_REFERENCE.md,run_qdad.py,INSTALL.md "$env:USERPROFILE\.grok\skills\qdad\"
+Copy-Item SKILL.md,CODE_REFERENCE.md,run_template.py,INSTALL.md "$env:USERPROFILE\.grok\skills\qdad\"
 ```
 
-### Runtime for real code
-
-```bash
-export OPEN_DEEPTHINK_ROOT=/path/to/open-deepthink
-python $OPEN_DEEPTHINK_ROOT/skills/qdad/run_qdad.py \
-  --prompt "cozy night writing app…" --n 3 --denoising-steps 2
-```
-
-Engine: `deepthink.qdad.run_qdad_pipeline` (LangGraph App Slot Machine).
+On invoke, the agent **builds** `.skill-runs/run_qdad.py` from `run_template.py`
+and runs it. Engine: `deepthink.qdad.run_qdad_pipeline` (App Slot Machine).
 
 ## 2. Invoke
 
