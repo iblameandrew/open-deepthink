@@ -1,4 +1,6 @@
-<img width="1248" height="832" alt="open-deepthink QNN visualization" src="https://github.com/user-attachments/assets/ffd223ee-a875-4213-a65f-23c2f7a7807c" />
+<p align="center">
+  <img width="1280" alt="open-deepthink — Qualitative Neural Networks, Diffusion, Distillation" src="static/open-deepthink-banner.png" />
+</p>
 
 # open-deepthink: Evolvable Agent Networks for Deep, Structured Reasoning
 
