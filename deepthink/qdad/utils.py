@@ -1,4 +1,5 @@
 """Helpers for QDAD qualitative algebra (word lists, matrices, temperature)."""
+
 from __future__ import annotations
 
 import re
@@ -48,18 +49,14 @@ def empty_matrix(n: int) -> List[List[str]]:
     return [["" for _ in range(n)] for _ in range(n)]
 
 
-def format_feature_matrix(
-    nouns: List[str], verbs: List[str], matrix: List[List[str]]
-) -> str:
+def format_feature_matrix(nouns: List[str], verbs: List[str], matrix: List[List[str]]) -> str:
     """Human-readable N×N feature matrix for synthesis + transparency."""
     lines = []
     n = len(nouns)
     for i in range(n):
         for j in range(n):
             cell = matrix[i][j] if i < len(matrix) and j < len(matrix[i]) else ""
-            lines.append(
-                f"[({i},{j}) basis: noun={nouns[i]!r} × verb={verbs[j]!r}]\n{cell}\n"
-            )
+            lines.append(f"[({i},{j}) basis: noun={nouns[i]!r} × verb={verbs[j]!r}]\n{cell}\n")
     return "\n".join(lines)
 
 
@@ -94,9 +91,7 @@ def enrich_prompt(
 ) -> str:
     enriched = user_prompt or ""
     if document_context:
-        enriched = (
-            f"{enriched}\n\n--- Attached Context ---\n{document_context[:30000]}"
-        )
+        enriched = f"{enriched}\n\n--- Attached Context ---\n{document_context[:30000]}"
     if chat_history:
         prior = "\n".join(
             f"{'User' if m.get('role') == 'user' else 'Assistant'}: {m.get('content', '')}"

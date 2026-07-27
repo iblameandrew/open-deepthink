@@ -40,9 +40,7 @@ def clean_and_parse_json(llm_output_string):
         return ""  # It's a comment, remove it
 
     try:
-        json_string = re.sub(
-            pattern, replace_comments, json_string, flags=re.MULTILINE | re.DOTALL
-        )
+        json_string = re.sub(pattern, replace_comments, json_string, flags=re.MULTILINE | re.DOTALL)
     except Exception:
         pass  # Fallback if regex fails (rare)
 

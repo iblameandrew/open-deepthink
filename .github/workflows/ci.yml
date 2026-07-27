@@ -29,21 +29,32 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Install package (editable + dev)
+      - name: Install package (editable + dev/web)
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Ruff check (typed / new surface)
-        # Phase 1: lint new production-foundations modules strictly.
-        # Broader app.py / legacy tests get cleaned up in Phase 2–3.
-        run: ruff check deepthink/config.py deepthink/cli.py deepthink/__main__.py tests/run_all.py tests/phase_config.py tests/_paths.py
+      - name: Ruff check (library surface)
+        run: >
+          ruff check
+          deepthink/config.py deepthink/cli.py deepthink/__main__.py
+          deepthink/providers.py deepthink/api.py deepthink/__init__.py
+          deepthink/distillation
+          tests/run_all.py tests/phase_config.py tests/phase_package_api.py tests/_paths.py
 
       - name: Ruff format (check only)
-        run: ruff format --check deepthink/config.py deepthink/cli.py deepthink/__main__.py tests/_paths.py tests/run_all.py tests/phase_config.py
+        run: >
+          ruff format --check
+          deepthink/config.py deepthink/cli.py deepthink/__main__.py
+          deepthink/providers.py deepthink/api.py deepthink/__init__.py
+          deepthink/distillation
+          tests/_paths.py tests/run_all.py tests/phase_config.py tests/phase_package_api.py
 
       - name: Mypy (typed surface)
-        run: mypy --config-file pyproject.toml deepthink/config.py deepthink/cli.py deepthink/__main__.py
+        run: >
+          mypy --config-file pyproject.toml
+          deepthink/config.py deepthink/cli.py deepthink/__main__.py
+          deepthink/providers.py deepthink/api.py
 
       - name: Ensure env template present for static tests
         run: |

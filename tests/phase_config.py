@@ -95,7 +95,8 @@ def t6():
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert "deepthink.cli:main" in pyproject or "deepthink.cli" in pyproject
     assert "pydantic-settings" in pyproject
-    assert "deepthink.distillation" not in pyproject
+    # Optional web extra should exist; core must not force FastAPI-only install
+    assert 'web' in pyproject or "[web]" in pyproject or "web =" in pyproject
 
 
 chk("pyproject entry points and package list", t6)

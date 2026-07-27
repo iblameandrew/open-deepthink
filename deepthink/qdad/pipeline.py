@@ -4,6 +4,7 @@ QDAD pipeline entrypoint — wire params → LangGraph → final_solution.
 Model-agnostic: any LangChain-compatible chat model works (OpenAI, Anthropic
 via OpenRouter, local llama.cpp, mocks, etc.).
 """
+
 from __future__ import annotations
 
 import json
@@ -87,20 +88,14 @@ async def run_qdad_pipeline(
     try:
         # recursion_limit: foundation+grid+noise + denoise_steps + synth + margin
         limit = max(25, 10 + denoising_steps * 2)
-        final_state: QDADState = await graph.ainvoke(
-            initial, {"recursion_limit": limit}
-        )
+        final_state: QDADState = await graph.ainvoke(initial, {"recursion_limit": limit})
 
         # Persist intermediate matrices into session store for inspection
         if session_store is not None and session_id in session_store:
-            session_store[session_id]["qdad_matrices"] = final_state.get(
-                "matrices"
-            ) or {}
+            session_store[session_id]["qdad_matrices"] = final_state.get("matrices") or {}
             session_store[session_id]["nouns"] = final_state.get("nouns")
             session_store[session_id]["verbs"] = final_state.get("verbs")
-            session_store[session_id]["final_solution"] = final_state.get(
-                "final_solution"
-            )
+            session_store[session_id]["final_solution"] = final_state.get("final_solution")
             session_store[session_id]["phase_log"] = final_state.get("phase_log")
 
         final_solution = final_state.get("final_solution") or {
@@ -110,9 +105,7 @@ async def run_qdad_pipeline(
         }
 
         await _log(f"FINAL_ANSWER: {json.dumps(final_solution)}")
-        await _log(
-            "SUCCESS: App Slot Machine (QDAD) LangGraph execution completed."
-        )
+        await _log("SUCCESS: App Slot Machine (QDAD) LangGraph execution completed.")
         return final_solution
 
     except Exception as e:

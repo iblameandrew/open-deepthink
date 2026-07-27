@@ -1,34 +1,33 @@
 # =============================================================================
 # open-deepthink dependencies
-# Preferred install:  pip install -e ".[dev]"
-# This file mirrors core runtime deps for simple `pip install -r` workflows.
+# Preferred:
+#   pip install -e .              # algorithms library (QNN / QDAD / distillation)
+#   pip install -e ".[web]"       # + FastAPI UI
+#   pip install -e ".[dev]"       # + web + ruff/mypy
+# This file = library + web (full app) for simple `pip install -r` workflows.
 # Providers: OpenRouter (cloud) and LlamaCpp Server (local).
 # =============================================================================
 
-# Web / server
-fastapi
-uvicorn[standard]
+# Library core
 python-dotenv
-sse-starlette
-python-multipart
 aiohttp
-
-# LangChain ecosystem
 langchain-core
 langchain-community  # FAISS vectorstore
 langchain-openai
 langchain-text-splitters
 langgraph
 grandalf
-
-# Vector store + ML
 faiss-cpu
 scikit-learn
 numpy
-
-# Document processing + config
 pymupdf>=1.24.0
 names
 openai
 pydantic>=2.0
 pydantic-settings>=2.0
+
+# Web UI (optional if you only use the library API)
+fastapi
+uvicorn[standard]
+sse-starlette
+python-multipart

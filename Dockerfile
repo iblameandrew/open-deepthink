@@ -29,7 +29,7 @@ COPY static ./static
 COPY skills ./skills
 
 RUN pip install --upgrade pip \
-    && pip install -e .
+    && pip install -e ".[web]"
 
 # Runtime state directories (also volume-mounted in compose)
 RUN mkdir -p /app/distillation_output /app/.deepthink-state /app/skills

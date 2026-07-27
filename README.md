@@ -195,21 +195,103 @@ These artifacts are the real product. The final synthesized answer is a byproduc
 
 ## Quick Start
 
+### A. Python package (algorithms library)
+
+All three modes ship as an importable package — **no web server required**.
+
 ```bash
 git clone https://github.com/iblameandrew/open-deepthink
 cd open-deepthink
 python -m venv venv
 .\venv\Scripts\activate          # Windows
 # source venv/bin/activate       # macOS/Linux
-pip install -e ".[dev]"          # preferred (package + entry points)
+pip install -e .                 # library: QNN + QDAD + distillation
+cp .env.example .env             # set OPENROUTER_API_KEY (or use llamacpp)
+```
+
+```python
+import asyncio
+from deepthink import create_llm, run_qnn, run_qdad, DistillationGraph
+
+async def main():
+    llm = create_llm()  # OpenRouter from env, or create_llm(provider="llamacpp")
+
+    # 1) Qualitative Neural Network → Solution-Space Report
+    qnn = await run_qnn(
+        llm,
+        "How do we break this ownership deadlock under concurrency?",
+        params={"qnn_mode": "auto", "num_epochs": 2},
+    )
+    print(qnn["proposed_solution"])
+
+    # 2) Qualitative Diffusion (QDAD) → App Build Prompt
+    qdad = await run_qdad(
+        llm,
+        "cozy night writing app, soft dark mode, offline-first",
+        params={"grid_size": 3, "denoising_steps": 2},
+    )
+    print(qdad)
+
+    # 3) Knowledge Distillation → evolutionary dataset + topology archive
+    graph = DistillationGraph(
+        llm,
+        topics=["concurrency", "ownership"],
+        anchor_question="Design a latch-free ownership protocol",
+        token_budget=100_000,
+    )
+    while graph.is_running:
+        if not await graph.run_epoch():
+            break
+    print(len(graph.distilled_data), "QA pairs →", graph.dataset_path)
+
+asyncio.run(main())
+```
+
+**CLI (same library, no browser):**
+
+```bash
+deepthink qnn  --prompt "Break this deadlock…" --verbose
+deepthink qdad --prompt "cozy night writing app" --n 3 --steps 2
+deepthink qnn  --prompt "…" --debug          # mock LLM, no API key
+deepthink version
+```
+
+| Algorithm | Import | What you get |
+|-----------|--------|----------------|
+| **QNN** | `from deepthink import run_qnn` | Layered multi-agent epochs + Mirror Descent + self-attention → Solution-Space Report |
+| **QDAD** | `from deepthink import run_qdad` | Noun×verb diffusion grid → buildable App Build Prompt |
+| **Distillation** | `from deepthink import DistillationGraph` | 1×2×2×2×2×2×1 evolutionary topology → dataset + `topology_archive.json` |
+| **Self-attention** | `from deepthink import compute_self_attention` | Qualitative attention over non-local past neurons |
+| **Providers** | `from deepthink import create_llm` | OpenRouter or llama.cpp chat models |
+
+Package layout:
+
+```
+deepthink/
+  api.py              # high-level run_qnn / run_qdad / run_distillation
+  providers.py        # create_llm(...)
+  qnn/                # brainstorm QNN pipeline
+  qdad/               # qualitative diffusion
+  distillation/       # evolutionary knowledge distillation
+  self_attention.py   # qualitative self-attention
+  chains/             # all LangChain prompt factories
+  config.py           # typed Settings (.env / env / TOML)
+```
+
+Full API surface: `from deepthink import …` (see `deepthink/__init__.py` and `deepthink/api.py`).
+
+### B. Web app (optional UI)
+
+```bash
+pip install -e ".[web]"          # library + FastAPI UI
 # or: pip install -r requirements.txt
-cp .env.example .env             # then set OPENROUTER_API_KEY
-open-deepthink                   # or: python -m deepthink  |  python app.py
+open-deepthink                   # or: deepthink serve  |  python -m deepthink
+# or: python app.py
 ```
 
 Open http://127.0.0.1:8000.
 
-**Supported providers**: OpenRouter (bring your own key) and local llama.cpp server.
+**Supported providers**: OpenRouter (bring your own key) and LlamaCpp / llama.cpp server (local).
 
 ### Docker
 
@@ -232,13 +314,20 @@ Typed settings live in `deepthink/config.py` (Pydantic Settings). Override via:
 
 Never commit real API keys. The web UI may store keys in browser localStorage only.
 
+### Install extras
+
+| Command | What you get |
+|---------|----------------|
+| `pip install -e .` | **Algorithms library** only |
+| `pip install -e ".[web]"` | Library + FastAPI web UI |
+| `pip install -e ".[dev]"` | Library + web + ruff/mypy/httpx |
+
 ### Tests (no API keys required)
 
 ```bash
+pip install -e ".[dev]"
 python tests/run_all.py
 ```
-
-See the in-app UI for the three modes, topology visualization, token budgeting (especially important for Distillation), and export controls.
 
 ## License
 

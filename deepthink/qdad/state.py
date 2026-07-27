@@ -1,4 +1,5 @@
 """QDAD graph state — the qualitative diffusion state tensor."""
+
 from typing import TypedDict, List, Dict, Any, Optional
 
 

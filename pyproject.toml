@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "open-deepthink"
 dynamic = ["version"]
-description = "Democratizing Deep Algorithmic Thought - a Qualitative Neural Network engine for local LLMs"
+description = "Qualitative Neural Networks, Qualitative Diffusion (QDAD), and evolutionary knowledge distillation — Python library + optional web UI"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
@@ -28,12 +28,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Framework :: FastAPI",
 ]
+# Core = algorithms library (QNN / QDAD / distillation). Web UI is optional.
 dependencies = [
-    "fastapi",
-    "uvicorn[standard]",
     "python-dotenv",
-    "sse-starlette",
-    "python-multipart",
     "aiohttp",
     "langchain-core",
     "langchain-community",
@@ -52,20 +49,25 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+web = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sse-starlette",
+    "python-multipart",
+]
 dev = [
+    "open-deepthink[web]",
     "ruff>=0.6.0",
     "mypy>=1.8.0",
     "types-requests",
-    "httpx",  # FastAPI TestClient
+    "httpx",
 ]
-skills = [
-    # Same as core today — reserved for skill-only lean installs later
-]
+skills = []
 ui = [
-    # Web stack is currently part of core; group kept for forward compatibility
+    "open-deepthink[web]",
 ]
 all = [
-    "open-deepthink[dev]",
+    "open-deepthink[dev,web]",
 ]
 
 [project.urls]
@@ -124,8 +126,14 @@ warn_return_any = false
 check_untyped_defs = false
 disallow_untyped_defs = false
 follow_imports = "skip"
-# Phase 1: gradual typing — only hard-fail on the new config surface
-files = ["deepthink/config.py", "deepthink/cli.py", "deepthink/__main__.py"]
+# Gradual typing — library surface
+files = [
+    "deepthink/config.py",
+    "deepthink/cli.py",
+    "deepthink/__main__.py",
+    "deepthink/providers.py",
+    "deepthink/api.py",
+]
 
 [tool.pytest.ini_options]
 # Legacy suite uses custom chk() scripts; CI invokes tests/run_all.py

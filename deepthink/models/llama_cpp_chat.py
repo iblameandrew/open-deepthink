@@ -76,9 +76,7 @@ class ChatLlamaCpp(BaseChatModel):
         )
 
         content = response.choices[0].message.content
-        return ChatResult(
-            generations=[ChatGeneration(message=AIMessage(content=content))]
-        )
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(content=content))])
 
     async def _agenerate(
         self,
@@ -102,6 +100,4 @@ class ChatLlamaCpp(BaseChatModel):
         )
 
         content = response.choices[0].message.content
-        return ChatResult(
-            generations=[ChatGeneration(message=AIMessage(content=content))]
-        )
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(content=content))])

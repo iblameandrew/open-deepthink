@@ -1,4 +1,25 @@
-# Release Notes — Phase 1 production foundations (unreleased)
+# Release Notes — `0.2.0`
+
+**Tag:** `0.2.0`
+**Date:** 2026-07-27
+**Tagline:** "Algorithms as a first-class Python package"
+
+### Library API
+* Top-level package exports for all algorithms:
+  `run_qnn`, `run_qdad`, `run_distillation`, `DistillationGraph`,
+  `compute_self_attention`, `create_llm`, defaults, archetypes
+* New modules: `deepthink/api.py`, `deepthink/providers.py`, `deepthink/distillation/`
+* CLI: `deepthink qnn`, `deepthink qdad`, `deepthink serve`, `deepthink version`
+* Dependency split: core install = library; optional `[web]` for FastAPI UI
+* `pip install -e .` uses algorithms without requiring the web stack
+
+### Docs & tests
+* README: library-first quick start with full code samples
+* `tests/phase_package_api.py` — public API + mock pipeline coverage
+
+---
+
+# Release Notes — Phase 1 production foundations (0.1.x line)
 
 **Tagline:** "Installable, configurable, CI-backed open-deepthink"
 

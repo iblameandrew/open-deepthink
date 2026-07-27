@@ -5,6 +5,7 @@ Model-agnostic: any LangChain-compatible chat model (OpenRouter, llama.cpp,
 mocks, etc.). Used by the open-deepthink Brainstorm UI *and* the portable
 ``/qnn`` skill runner (``skills/qnn/run_qnn.py``).
 """
+
 from __future__ import annotations
 
 import json
@@ -225,11 +226,7 @@ async def run_qnn_pipeline(
         {"problem": user_prompt, "word_count": total_seed}
     )
     all_seed_words = list(
-        {
-            w.strip()
-            for w in seeds_str.replace(",", " ").split()
-            if w.strip() and len(w.strip()) > 1
-        }
+        {w.strip() for w in seeds_str.replace(",", " ").split() if w.strip() and len(w.strip()) > 1}
     )
     fallback = [
         "distill",
@@ -252,9 +249,7 @@ async def run_qnn_pipeline(
     column_guiding_words: List[str] = []
     for j in range(width):
         sample = (
-            random.sample(all_seed_words, V)
-            if len(all_seed_words) >= V
-            else list(all_seed_words)
+            random.sample(all_seed_words, V) if len(all_seed_words) >= V else list(all_seed_words)
         )
         column_guiding_words.append(" ".join(sample))
         await _log(log, f"LOG: [QNN STEP 2] Column {j} guiding_words: {column_guiding_words[-1]}")
@@ -330,9 +325,7 @@ async def run_qnn_pipeline(
                             if isinstance(up, dict):
                                 prev_layer_outputs.append({"agent_id": prev_id, **up})
                             else:
-                                prev_layer_outputs.append(
-                                    {"agent_id": prev_id, "output": up}
-                                )
+                                prev_layer_outputs.append({"agent_id": prev_id, "output": up})
 
                 # Qualitative self-attention over non-local past neurons
                 attention_block = ""
@@ -353,9 +346,7 @@ async def run_qnn_pipeline(
                             await _log(
                                 log,
                                 f"LOG: [QNN ATTEND] {node_id} → "
-                                + ", ".join(
-                                    f"{e.to_id}({e.strength})" for e in edges
-                                ),
+                                + ", ".join(f"{e.to_id}({e.strength})" for e in edges),
                             )
                     except Exception as ae:
                         await _log(log, f"WARNING: [QNN ATTEND] {node_id}: {ae}")
@@ -394,9 +385,7 @@ Convergent / critical. Critique or combine upstream. Cite agent_id. No productio
 {attention_block}
 """
 
-                mem_str = "\n".join(
-                    f"- {json.dumps(m)}" for m in memory.get(node_id, [])[-5:]
-                )
+                mem_str = "\n".join(f"- {json.dumps(m)}" for m in memory.get(node_id, [])[-5:])
                 full_prompt = f"""
 #System Prompt (Your Persona & Task):
 ---

@@ -1,15 +1,17 @@
 """
 State definitions and type hints for DeepThink.
 """
+
 from typing import TypedDict, Annotated, List, Optional, Dict, Any
 from langchain_core.documents import Document
 
 
 class GraphState(TypedDict):
     """The state object passed through the graph during execution."""
+
     mode: str  # "app_slot_machine" or "brainstorm"
     modules: List[dict]
-    synthesis_context_queue: List[str] 
+    synthesis_context_queue: List[str]
     agent_personas: dict
     previous_solution: str
     current_problem: str
@@ -23,7 +25,7 @@ class GraphState(TypedDict):
     agent_outputs: Annotated[dict, lambda a, b: {**a, **b}]
     memory: Annotated[dict, lambda a, b: {**a, **b}]
     final_solution: dict
-    perplexity_history: List[float] 
+    perplexity_history: List[float]
     raptor_index: Optional[Any]  # RAPTOR type - circular import prevention
     all_rag_documents: List[Document]
     academic_papers: Optional[dict]

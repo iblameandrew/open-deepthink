@@ -1,4 +1,3 @@
-
 import asyncio
 import copy
 import json
@@ -13,8 +12,9 @@ from deepthink.chains import (
     get_mirror_descent_chain,
     get_mixing_chain,
     get_followup_question_chain,
-    DISTILLATION_ARCHETYPES
+    DISTILLATION_ARCHETYPES,
 )
+
 # PerplexityChain lives in its own module (used only by distillation mode for LLM-based quality scoring).
 # We import it here so the _compute_perplexity method can actually find the name.
 from deepthink.chains.perplexity_chain import PerplexityChain
@@ -27,19 +27,25 @@ logger = logging.getLogger(__name__)
 class DistillationAgent:
     """A single agent in the distillation topology."""
 
-    def __init__(self, agent_id: str, archetype_id: int, system_prompt: str,
-                 attributes: List[str], skills: List[str] = None):
+    def __init__(
+        self,
+        agent_id: str,
+        archetype_id: int,
+        system_prompt: str,
+        attributes: List[str],
+        skills: List[str] = None,
+    ):
         self.id = agent_id
         self.archetype_id = archetype_id
         self.system_prompt = system_prompt
         self.attributes = attributes
         self.skills = skills or []
-        self.history: List[Dict[str, str]] = []       # [{question, answer}, ...]
+        self.history: List[Dict[str, str]] = []  # [{question, answer}, ...]
         self.current_question = ""
-        self.difficulty_history: List[str] = []        # "Easy" or "Hard"
-        self.context_memory = ""                       # Per-agent inherited context, max 100k tokens
-        self.inherited_from: Optional[str] = None      # Parent agent id if this is a child
-        self.solved_parent_question = False             # Track if child solved parent's hard question
+        self.difficulty_history: List[str] = []  # "Easy" or "Hard"
+        self.context_memory = ""  # Per-agent inherited context, max 100k tokens
+        self.inherited_from: Optional[str] = None  # Parent agent id if this is a child
+        self.solved_parent_question = False  # Track if child solved parent's hard question
 
     def to_dict(self) -> dict:
         return {
@@ -73,7 +79,7 @@ class DistillationAgent:
 class DistillationGraph:
     """
     Knowledge Distillation Graph.
-    
+
     Topology: 1x2x2x2x2x2x1 (12 agents, 7 layers, no synthesis node).
     Each epoch: TaskMaster → ForwardPass → MirrorDescent → SeedCreator → Followup.
     Runs until token_budget is exhausted.
@@ -81,10 +87,16 @@ class DistillationGraph:
 
     CONTEXT_MEMORY_MAX_CHARS = 400_000  # ~100k tokens at ~4 chars/token
 
-    def __init__(self, llm, topics: List[str], anchor_question: str,
-                 token_budget: int = 1_000_000, debug_mode: bool = False,
-                 output_dir: str = "distillation_output",
-                 log_queue: asyncio.Queue = None):
+    def __init__(
+        self,
+        llm,
+        topics: List[str],
+        anchor_question: str,
+        token_budget: int = 1_000_000,
+        debug_mode: bool = False,
+        output_dir: str = "distillation_output",
+        log_queue: asyncio.Queue = None,
+    ):
         self.llm = llm
         self.topics = topics
         self.anchor_question = anchor_question
@@ -163,7 +175,7 @@ class DistillationGraph:
     def _trim_context_memory(self, text: str) -> str:
         """Enforce the 100k-token (~400k char) cap per agent context."""
         if len(text) > self.CONTEXT_MEMORY_MAX_CHARS:
-            return text[-self.CONTEXT_MEMORY_MAX_CHARS:]
+            return text[-self.CONTEXT_MEMORY_MAX_CHARS :]
         return text
 
     def _flat_agents(self) -> List[DistillationAgent]:
@@ -189,10 +201,7 @@ class DistillationGraph:
         snapshot = {
             "epoch": self.epochs_run,
             "topics": list(self.topics),
-            "layers": [
-                [agent.deep_copy_state() for agent in layer]
-                for layer in self.layers
-            ],
+            "layers": [[agent.deep_copy_state() for agent in layer] for layer in self.layers],
             "total_input_tokens": self.total_input_tokens,
             "total_output_tokens": self.total_output_tokens,
         }
@@ -208,14 +217,19 @@ class DistillationGraph:
         """Write the distilled QA dataset to disk in real-time."""
         try:
             with open(self.dataset_path, "w", encoding="utf-8") as f:
-                json.dump({
-                    "anchor_question": self.anchor_question,
-                    "total_epochs": self.epochs_run,
-                    "total_input_tokens": self.total_input_tokens,
-                    "total_output_tokens": self.total_output_tokens,
-                    "total_tokens": self.total_tokens,
-                    "qa_pairs": self.distilled_data,
-                }, f, indent=2, ensure_ascii=False)
+                json.dump(
+                    {
+                        "anchor_question": self.anchor_question,
+                        "total_epochs": self.epochs_run,
+                        "total_input_tokens": self.total_input_tokens,
+                        "total_output_tokens": self.total_output_tokens,
+                        "total_tokens": self.total_tokens,
+                        "qa_pairs": self.distilled_data,
+                    },
+                    f,
+                    indent=2,
+                    ensure_ascii=False,
+                )
         except Exception as e:
             logger.warning(f"Failed to write dataset: {e}")
 
@@ -232,7 +246,9 @@ class DistillationGraph:
         # Get the most recent ones
         sample = self.distilled_data[-sample_size:]
 
-        await self.log_queue.put("DISTILLATION_LOG: 📉 Calculating perplexity on recent QA pairs...")
+        await self.log_queue.put(
+            "DISTILLATION_LOG: 📉 Calculating perplexity on recent QA pairs..."
+        )
 
         try:
             chain = PerplexityChain(self.llm)
@@ -240,13 +256,13 @@ class DistillationGraph:
             score = float(result.get("score", 50.0))
             reasoning = result.get("reasoning", "No reasoning provided.")
 
-            await self.log_queue.put(f"DISTILLATION_LOG: ✅ Perplexity Score: {score} | {reasoning}")
+            await self.log_queue.put(
+                f"DISTILLATION_LOG: ✅ Perplexity Score: {score} | {reasoning}"
+            )
             return score
         except Exception as e:
             await self.log_queue.put(f"DISTILLATION_LOG: ⚠️ Failed to compute perplexity: {e}")
             return 0.0
-
-
 
     # ------------------------------------------------------------------
     # EPOCH: MAIN ENTRY POINT
@@ -323,7 +339,9 @@ class DistillationGraph:
                 if i < len(sub_questions):
                     agent.current_question = sub_questions[i]
                 else:
-                    agent.current_question = sub_questions[-1] if sub_questions else self.anchor_question
+                    agent.current_question = (
+                        sub_questions[-1] if sub_questions else self.anchor_question
+                    )
 
         # On epoch 2+, questions are already assigned by _step_seed_and_followup
         # Just log current assignments
@@ -337,10 +355,12 @@ class DistillationGraph:
         chain = get_task_master_chain(self.llm)
         try:
             input_text = f"topics: {', '.join(self.topics)}, anchor: {self.anchor_question}"
-            result = await chain.ainvoke({
-                "topics": ", ".join(self.topics),
-                "anchor_question": self.anchor_question,
-            })
+            result = await chain.ainvoke(
+                {
+                    "topics": ", ".join(self.topics),
+                    "anchor_question": self.anchor_question,
+                }
+            )
             self._count_tokens(input_text, result)
             parsed = json.loads(result)
             return parsed.get("sub_questions", [f"Sub-question {i}" for i in range(12)])
@@ -382,15 +402,15 @@ class DistillationGraph:
         - Global anchor question
         - Agent's own sub-question
         """
-        
+
         prompt = f"""<Context>
 Grand Objective / Anchor Question: {self.anchor_question}
 
 Your Accumulated Memory:
-{agent.context_memory[-20000:] if agent.context_memory else '(First epoch — no prior memory.)'}
+{agent.context_memory[-20000:] if agent.context_memory else "(First epoch — no prior memory.)"}
 
 Previous Layer Context:
-{layer_context[:20000] if layer_context else '(First layer — no prior context.)'}
+{layer_context[:20000] if layer_context else "(First layer — no prior context.)"}
 </Context>
 
 <Task>
@@ -405,9 +425,13 @@ Be thorough and analytical.
 
         try:
             # Verbose Log: Agent Context & Input
-            await self.log(f"DISTILLATION_LOG: 🤖 [Agent {agent.id}] System Prompt: {agent.system_prompt[:200]}...")
-            await self.log(f"DISTILLATION_LOG: 📥 [Agent {agent.id}] Input Task: {agent.current_question}")
-            
+            await self.log(
+                f"DISTILLATION_LOG: 🤖 [Agent {agent.id}] System Prompt: {agent.system_prompt[:200]}..."
+            )
+            await self.log(
+                f"DISTILLATION_LOG: 📥 [Agent {agent.id}] Input Task: {agent.current_question}"
+            )
+
             messages = [
                 SystemMessage(content=agent.system_prompt),
                 HumanMessage(content=prompt),
@@ -416,7 +440,9 @@ Be thorough and analytical.
             content = response.content
 
             # Verbose Log: Agent Output
-            await self.log(f"DISTILLATION_LOG: 📤 [Agent {agent.id}] Raw Output: {content[:300]}... [truncated]")
+            await self.log(
+                f"DISTILLATION_LOG: 📤 [Agent {agent.id}] Raw Output: {content[:300]}... [truncated]"
+            )
 
             # Count both input and output tokens
             input_text = agent.system_prompt + prompt
@@ -424,16 +450,19 @@ Be thorough and analytical.
 
             # Update agent state
             agent.history.append({"question": agent.current_question, "answer": content})
-            self.distilled_data.append({
-                "epoch": self.epochs_run,
-                "agent_id": agent.id,
-                "archetype_id": agent.archetype_id,
-                "question": agent.current_question,
-                "answer": content,
-            })
+            self.distilled_data.append(
+                {
+                    "epoch": self.epochs_run,
+                    "agent_id": agent.id,
+                    "archetype_id": agent.archetype_id,
+                    "question": agent.current_question,
+                    "answer": content,
+                }
+            )
             # Update per-agent context memory (capped at 100k tokens)
             agent.context_memory = self._trim_context_memory(
-                agent.context_memory + f"\n[Epoch {self.epochs_run}] Q: {agent.current_question}\nA: {content}\n"
+                agent.context_memory
+                + f"\n[Epoch {self.epochs_run}] Q: {agent.current_question}\nA: {content}\n"
             )
             return content
         except Exception as e:
@@ -464,7 +493,7 @@ Be thorough and analytical.
                 eval_result = await self._evaluate_agent(agent, current_grid_description)
                 difficulty = eval_result.get("difficulty", "Easy")
                 agent.difficulty_history.append(difficulty)
-                
+
                 await self.log(f"  Agent {agent.id}: {difficulty}")
                 await self.log(f"DISTILLATION_LOG: ⚖️ Evaluation for {agent.id}: {difficulty}")
 
@@ -475,7 +504,9 @@ Be thorough and analytical.
                     if agent.inherited_from:
                         agent.solved_parent_question = True
                         await self.log(f"  ✓ Child {agent.id} solved inherited question!")
-                        await self.log(f"DISTILLATION_LOG: ✅ Child {agent.id} SUCCESS - Solved inherited question via {agent.inherited_from}")
+                        await self.log(
+                            f"DISTILLATION_LOG: ✅ Child {agent.id} SUCCESS - Solved inherited question via {agent.inherited_from}"
+                        )
                     # Will get a new question in the Seed/Followup step
                     agent.current_question = ""
 
@@ -497,8 +528,9 @@ Be thorough and analytical.
         self._count_tokens(input_text, result_json)
         return json.loads(result_json)
 
-    async def _handle_hard_agent(self, agent: DistillationAgent,
-                                  eval_result: dict, flat_agents: List[DistillationAgent]):
+    async def _handle_hard_agent(
+        self, agent: DistillationAgent, eval_result: dict, flat_agents: List[DistillationAgent]
+    ):
         """Spawn a child from the struggling agent + the best-match helper."""
         helper_agent_id = eval_result.get("best_match_agent_id")
         # Fallback: try archetype-based lookup
@@ -511,28 +543,38 @@ Be thorough and analytical.
         if not helper_agent and helper_archetype_id:
             # Fallback to archetype match
             helper_agent = next(
-                (a for a in flat_agents if a.archetype_id == helper_archetype_id and a.id != agent.id),
+                (
+                    a
+                    for a in flat_agents
+                    if a.archetype_id == helper_archetype_id and a.id != agent.id
+                ),
                 None,
             )
         if not helper_agent:
             await self.log(f"  No helper found for {agent.id}, keeping agent.")
-            await self.log(f"DISTILLATION_LOG: ⚠️ No helper found for {agent.id}. Maintaining state.")
+            await self.log(
+                f"DISTILLATION_LOG: ⚠️ No helper found for {agent.id}. Maintaining state."
+            )
             return
 
         await self.log(f"  Spawning child from {agent.id} + {helper_agent.id}")
-        await self.log(f"DISTILLATION_LOG: 🧬 SPAWNING CHILD: {agent.id} (struggling) + {helper_agent.id} (helper)")
+        await self.log(
+            f"DISTILLATION_LOG: 🧬 SPAWNING CHILD: {agent.id} (struggling) + {helper_agent.id} (helper)"
+        )
 
         mix_result = await self._mix_agents(agent, helper_agent)
 
         # Replace agent in-place: child inherits parent's context memory
         old_context = agent.context_memory
         agent.inherited_from = agent.id + f"_epoch{self.epochs_run}"
-        
+
         # Log the evolution
         old_prompt_snippet = agent.system_prompt[:50]
         new_prompt_snippet = mix_result.get("new_system_prompt", agent.system_prompt)[:50]
-        await self.log(f"DISTILLATION_LOG: 🔄 Evolution: Prompt morphed from '{old_prompt_snippet}...' to '{new_prompt_snippet}...'")
-        
+        await self.log(
+            f"DISTILLATION_LOG: 🔄 Evolution: Prompt morphed from '{old_prompt_snippet}...' to '{new_prompt_snippet}...'"
+        )
+
         agent.system_prompt = mix_result.get("new_system_prompt", agent.system_prompt)
         agent.attributes = mix_result.get("new_attributes", agent.attributes)
         agent.skills = mix_result.get("new_skills", agent.skills)
@@ -540,9 +582,7 @@ Be thorough and analytical.
         agent.solved_parent_question = False
         # Hard agent keeps the same question for the next epoch
 
-    async def _mix_agents(self, parent_a: DistillationAgent,
-                           parent_b: DistillationAgent) -> dict:
-        
+    async def _mix_agents(self, parent_a: DistillationAgent, parent_b: DistillationAgent) -> dict:
         chain = get_mixing_chain(self.llm)
         input_data = {
             "parent_a_attributes": ", ".join(parent_a.attributes),
@@ -574,8 +614,10 @@ Be thorough and analytical.
         # Truncate for downstream chains (to avoid blowing context windows)
         if len(self.final_answer) > 40_000:
             self.final_answer = self.final_answer[-40_000:]
-        
-        await self.log(f"DISTILLATION_LOG: 🧩 Synthesized internal final answer ({len(self.final_answer)} chars) for Seed Creator.")
+
+        await self.log(
+            f"DISTILLATION_LOG: 🧩 Synthesized internal final answer ({len(self.final_answer)} chars) for Seed Creator."
+        )
 
     # ------------------------------------------------------------------
     # STEP 5: SEED CREATOR + FOLLOWUP QUESTIONS
@@ -606,9 +648,11 @@ Be thorough and analytical.
                 agent.current_question = ""
                 agent.solved_parent_question = False
                 agents_needing_questions.append(agent)
-                
+
         if agents_needing_questions:
-            await self.log(f"DISTILLATION_LOG: 📝 Generating new questions for {len(agents_needing_questions)} agents...")
+            await self.log(
+                f"DISTILLATION_LOG: 📝 Generating new questions for {len(agents_needing_questions)} agents..."
+            )
             new_questions = await self._invoke_followup(len(agents_needing_questions))
             for i, agent in enumerate(agents_needing_questions):
                 if i < len(new_questions):
@@ -618,7 +662,6 @@ Be thorough and analytical.
             await self.log(f"  Assigned {len(agents_needing_questions)} new questions.")
 
     async def _invoke_seed_creator(self) -> List[str]:
-        
         chain = get_seed_creator_chain(self.llm)
         truncated_answer = self.final_answer[:4000]
         input_data = {
@@ -636,7 +679,6 @@ Be thorough and analytical.
             return self.topics
 
     async def _invoke_followup(self, count: int) -> List[str]:
-
         # debug_mode check removed to use MockLLM
 
         chain = get_followup_question_chain(self.llm)

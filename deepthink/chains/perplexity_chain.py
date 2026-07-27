@@ -3,9 +3,13 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel, Field
 
+
 class PerplexityScore(BaseModel):
-    score: float = Field(description="A score from 0-100 indicating the quality/perplexity. Lower is better perplexity, higher is better quality. Let's use 0-100 where 0 is perfect perplexity (i.e. very predictable/good) and 100 is high perplexity (bad). Wait, usually perplexity is lower = better. Let's define it as 'Perplexity Score' where 1 = perfect, 100 = garbage.")
+    score: float = Field(
+        description="A score from 0-100 indicating the quality/perplexity. Lower is better perplexity, higher is better quality. Let's use 0-100 where 0 is perfect perplexity (i.e. very predictable/good) and 100 is high perplexity (bad). Wait, usually perplexity is lower = better. Let's define it as 'Perplexity Score' where 1 = perfect, 100 = garbage."
+    )
     reasoning: str = Field(description="Brief reasoning for the score.")
+
 
 class PerplexityChain:
     def __init__(self, llm):
@@ -26,14 +30,14 @@ Batch of QA Pairs:
 Return your evaluation in JSON format with keys "score" and "reasoning".
 """,
             input_variables=["qa_pairs"],
-            partial_variables={"format_instructions": self.parser.get_format_instructions()}
+            partial_variables={"format_instructions": self.parser.get_format_instructions()},
         )
         self.chain = self.prompt | self.llm | self.parser
 
     async def ainvoke(self, qa_pairs):
         # Format pairs for prompt
         formatted_pairs = "\n".join([f"Q: {p['question']}\nA: {p['answer']}" for p in qa_pairs])
-        
+
         try:
             result = await self.chain.ainvoke({"qa_pairs": formatted_pairs})
             return result

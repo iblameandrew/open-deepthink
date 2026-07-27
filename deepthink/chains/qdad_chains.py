@@ -9,6 +9,7 @@ Philosophy (enforced in every prompt):
   • Vague aesthetic prompt → concrete, buildable app specification
     (as Midjourney turns a vague prompt into an image).
 """
+
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 

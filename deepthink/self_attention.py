@@ -14,6 +14,7 @@ memory from other agents in prior epochs.
 
 Colony reference: smenos/colony/backend/app/agents/attention.py
 """
+
 from __future__ import annotations
 
 import re
@@ -167,7 +168,9 @@ def collect_attention_candidates(
     candidates: List[AttentionCandidate] = []
     seen: Set[Tuple[str, str, int]] = set()
 
-    def _add(agent_id: str, output: Any, source: str, epoch_hint: Optional[int], entry_index: int = -1):
+    def _add(
+        agent_id: str, output: Any, source: str, epoch_hint: Optional[int], entry_index: int = -1
+    ):
         if agent_id == node_id:
             return
         norm = _normalize_output(output)
@@ -212,8 +215,10 @@ def collect_attention_candidates(
                     # Likely the entry just written this epoch or last write
                     current = _normalize_output(agent_outputs.get(agent_id))
                     this = _normalize_output(entry)
-                    if current and this and current.get("proposed_solution") == this.get(
-                        "proposed_solution"
+                    if (
+                        current
+                        and this
+                        and current.get("proposed_solution") == this.get("proposed_solution")
                     ):
                         continue
             _add(agent_id, entry, "memory", None if agent_id in neighbor_ids else None, idx)
@@ -305,9 +310,7 @@ def select_top_edges(
 ) -> List[AttentionEdge]:
     min_ord = STRENGTH_ORDER.get(min_strength, 1)
     filtered = [
-        e
-        for e in edges
-        if STRENGTH_ORDER.get(e.strength, 0) >= min_ord and e.strength != "none"
+        e for e in edges if STRENGTH_ORDER.get(e.strength, 0) >= min_ord and e.strength != "none"
     ]
     filtered.sort(key=lambda e: (-e.score, -STRENGTH_ORDER.get(e.strength, 0), e.to_id))
     # One edge per target neuron (best score wins)
@@ -363,8 +366,6 @@ def compute_self_attention(
     if not candidates:
         return [], ""
 
-    edges = [
-        score_pair_heuristic(node_id, query_persona, cand) for cand in candidates
-    ]
+    edges = [score_pair_heuristic(node_id, query_persona, cand) for cand in candidates]
     top = select_top_edges(edges, top_k=top_k)
     return top, format_attention_context(top)

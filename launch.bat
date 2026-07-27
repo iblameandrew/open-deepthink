@@ -4,8 +4,8 @@ echo   open-deepthink Launcher
 echo ===================================================
 echo.
 
-echo [1/2] Installing/Updating dependencies (editable)...
-pip install -e .
+echo [1/2] Installing/Updating dependencies (library + web UI)...
+pip install -e ".[web]"
 if %errorlevel% neq 0 (
     echo.
     echo [ERROR] Failed to install package. Falling back to requirements.txt...

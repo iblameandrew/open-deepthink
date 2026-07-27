@@ -4,6 +4,7 @@ QDAD LangGraph node factories.
 Phase 0 Foundation → Phase 1 Grid → Phase 2 Noise → Phase 3 Denoise* → Phase 4 Synthesis
 Noise and each denoise round parallelize the full N×N grid.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -156,17 +157,14 @@ def create_noise_node(llm, log: LogFn = None):
             except Exception as e:
                 return i, j, f"[noise error] {e}"
 
-        results = await asyncio.gather(
-            *[cell(i, j) for i in range(n) for j in range(n)]
-        )
+        results = await asyncio.gather(*[cell(i, j) for i in range(n) for j in range(n)])
         noisy = empty_matrix(n)
         for i, j, text in results:
             noisy[i][j] = text
             preview = text[:120].replace("\n", " ")
             await _emit(
                 log,
-                f"LOG: [QDAD PHASE 2] noisy[{i}][{j}] "
-                f"({nouns[i]}×{verbs[j]}): {preview}...",
+                f"LOG: [QDAD PHASE 2] noisy[{i}][{j}] ({nouns[i]}×{verbs[j]}): {preview}...",
             )
 
         matrices = dict(state.get("matrices") or {})
@@ -224,9 +222,7 @@ def create_denoise_node(llm, log: LogFn = None):
             except Exception:
                 return i, j, features[i][j]
 
-        results = await asyncio.gather(
-            *[cell(i, j) for i in range(n) for j in range(n)]
-        )
+        results = await asyncio.gather(*[cell(i, j) for i in range(n) for j in range(n)])
         refined = empty_matrix(n)
         for i, j, text in results:
             refined[i][j] = text
@@ -249,8 +245,7 @@ def create_denoise_node(llm, log: LogFn = None):
             out["matrices"] = matrices
             await _emit(
                 log,
-                f"LOG: [QDAD PHASE 3] Reverse diffusion complete "
-                f"({total_steps} steps).",
+                f"LOG: [QDAD PHASE 3] Reverse diffusion complete ({total_steps} steps).",
             )
         phase_log = list(state.get("phase_log") or [])
         phase_log.append(f"denoise step {step}/{total_steps}")
