@@ -148,6 +148,23 @@ def t7():
 chk("js/components/node-chat.js exists", t7)
 
 
+# 7b) System answers expose a copy button that is not inside streamed innerHTML
+def t7b():
+    js_path = ROOT.joinpath("js", "components", "node-chat.js")
+    css_path = ROOT.joinpath("css", "node-chat.css")
+    js = js_path.read_text(encoding="utf-8")
+    css = css_path.read_text(encoding="utf-8")
+    assert "nc-copy-btn" in js
+    assert "copyToClipboard" in js
+    assert "nc-msg-row--ai" in js
+    assert "navigator.clipboard" in js
+    assert "nc-copy-btn" in css
+    assert "nc-msg-row--ai" in css
+
+
+chk("NodeChat system answers have a copy button", t7b)
+
+
 # 8) Env template exists; optional local .env for secrets (gitignored)
 def t8():
     has_env = os.path.exists(str(ROOT.joinpath(".env")))

@@ -1,3 +1,17 @@
+# Release Notes — `0.2.1`
+
+**Tag:** `0.2.1`
+**Date:** 2026-08-13
+**Tagline:** "Copy system answers from the chatbox"
+
+### Chat UI
+* Each completed system (assistant) reply in NodeChat now has a **Copy** button
+* Copies the original markdown/text of the answer (not the rendered HTML)
+* Button appears after the reply finishes — streaming updates do not wipe it
+* Clipboard API with `execCommand` fallback; brief Copied / failed feedback
+
+---
+
 # Release Notes — `0.2.0`
 
 **Tag:** `0.2.0`

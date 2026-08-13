@@ -606,6 +606,60 @@
   border-bottom-left-radius: 0.25rem;
 }
 
+/* AI answer row: bubble + copy control (copy sits outside innerHTML so streaming is safe) */
+.nc-msg-row--ai {
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 80%;
+  position: relative;
+  z-index: 1;
+  gap: 0.35rem;
+}
+
+.nc-msg-row--ai .nc-msg {
+  max-width: 100%;
+}
+
+.nc-copy-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.35);
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
+}
+
+.nc-copy-btn:hover {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.nc-copy-btn:focus-visible {
+  outline: 1px solid rgba(139, 92, 246, 0.6);
+  outline-offset: 2px;
+}
+
+.nc-copy-btn.is-copied {
+  color: #86efac;
+}
+
+.nc-copy-btn.is-error {
+  color: #fca5a5;
+}
+
+.nc-copy-btn[hidden] {
+  display: none;
+}
+
 /* markdown content inside ai messages */
 .nc-msg--ai h1,
 .nc-msg--ai h2,
@@ -845,7 +899,8 @@
     padding: 0.75rem 1rem;
   }
 
-  .nc-msg {
+  .nc-msg,
+  .nc-msg-row--ai {
     max-width: 90%;
   }
 

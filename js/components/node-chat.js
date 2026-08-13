@@ -47,6 +47,32 @@ const NodeChat = (() => {
         trash: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 01-2 2H9a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>`,
         refresh: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>`,
         brain: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 00-7 7c0 3 2 5.5 4 7.5S12 22 12 22s3-3.5 5-5.5 4-4.5 4-7.5a7 7 0 00-7-7z"/></svg>`,
+        copy: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`,
+        check: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+    };
+
+    const copyToClipboard = async (text) => {
+        if (!text) return false;
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+                return true;
+            }
+        } catch (_) { /* fall through to execCommand */ }
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            return ok;
+        } catch (_) {
+            return false;
+        }
     };
 
     /* ============================================================
@@ -328,12 +354,42 @@ const NodeChat = (() => {
             scrollToBottom(messagesArea);
         }
 
-        function addAIBubble() {
+        function addAIBubble({ ready = false, text = '' } = {}) {
             clearEmpty();
-            const bubble = h('div', { className: 'nc-msg nc-msg--ai' });
-            messagesArea.appendChild(bubble);
+            const content = h('div', { className: 'nc-msg nc-msg--ai' });
+            const copyBtn = h('button', {
+                className: 'nc-copy-btn',
+                type: 'button',
+                title: 'Copy answer',
+            });
+            copyBtn.setAttribute('aria-label', 'Copy answer');
+            copyBtn.innerHTML = icons.copy;
+            copyBtn.hidden = !ready;
+
+            const row = h('div', { className: 'nc-msg-row nc-msg-row--ai' }, content, copyBtn);
+            row._copyText = text;
+            row._copyBtn = copyBtn;
+
+            copyBtn.addEventListener('click', async () => {
+                const payload = row._copyText || '';
+                if (!payload) return;
+                const ok = await copyToClipboard(payload);
+                copyBtn.classList.toggle('is-copied', ok);
+                copyBtn.classList.toggle('is-error', !ok);
+                copyBtn.innerHTML = ok ? icons.check : icons.copy;
+                copyBtn.title = ok ? 'Copied' : 'Copy failed';
+                copyBtn.setAttribute('aria-label', copyBtn.title);
+                setTimeout(() => {
+                    copyBtn.classList.remove('is-copied', 'is-error');
+                    copyBtn.innerHTML = icons.copy;
+                    copyBtn.title = 'Copy answer';
+                    copyBtn.setAttribute('aria-label', 'Copy answer');
+                }, 1600);
+            });
+
+            messagesArea.appendChild(row);
             scrollToBottom(messagesArea);
-            return bubble;
+            return content;
         }
 
         function addThinking() {
@@ -382,16 +438,18 @@ const NodeChat = (() => {
                     await opts.onSend(text, chatAPI);
                 } catch (err) {
                     removeThinking();
-                    const errBubble = addAIBubble();
-                    errBubble.innerHTML = `<span style="color:#ef4444">Error: ${err.message}</span>`;
+                    const errText = `Error: ${err.message}`;
+                    const errBubble = addAIBubble({ ready: true, text: errText });
+                    errBubble.innerHTML = `<span style="color:#ef4444">${errText}</span>`;
                 }
             } else {
                 // Default: echo back after 1s (demo)
                 setTimeout(() => {
                     removeThinking();
-                    const bubble = addAIBubble();
-                    bubble.innerHTML = renderMarkdown(`You said: **${text}**\n\nConnect an \`onSend\` handler to make this functional.`);
-                    finishStreaming();
+                    const demo = `You said: **${text}**\n\nConnect an \`onSend\` handler to make this functional.`;
+                    const bubble = addAIBubble({ ready: true, text: demo });
+                    bubble.innerHTML = renderMarkdown(demo);
+                    finishStreaming(demo);
                 }, 1000);
             }
         }
@@ -406,6 +464,8 @@ const NodeChat = (() => {
 
         function updateAIResponse(bubble, fullText) {
             bubble.innerHTML = renderMarkdown(fullText);
+            const row = bubble && bubble.parentElement;
+            if (row) row._copyText = fullText;
             scrollToBottom(messagesArea);
         }
 
@@ -416,13 +476,19 @@ const NodeChat = (() => {
             if (content) {
                 state.messages.push({ role: 'assistant', content });
             }
+            const rows = messagesArea.querySelectorAll('.nc-msg-row--ai');
+            const last = rows[rows.length - 1];
+            if (last && last._copyBtn) {
+                if (typeof content === 'string') last._copyText = content;
+                last._copyBtn.hidden = !last._copyText;
+            }
         }
 
         function appendAIMessage(text) {
             // For SSE-style: add a complete message at once
             clearEmpty();
             removeThinking();
-            const bubble = addAIBubble();
+            const bubble = addAIBubble({ ready: true, text });
             bubble.innerHTML = renderMarkdown(text);
             state.messages.push({ role: 'assistant', content: text });
             state.isStreaming = false;
