@@ -23,9 +23,9 @@ from __future__ import annotations
 
 from typing import Any
 
-__version__ = "0.2.0"
-__release_name__ = "library-api"
-__release_tag__ = "0.2.0"
+__version__ = "0.2.1"
+__release_name__ = "copy-answers"
+__release_tag__ = "0.2.1"
 
 # Lightweight imports — always safe, no LangChain graph spin-up
 from deepthink.state import BRAINSTORM_EXPERTS, GraphState
