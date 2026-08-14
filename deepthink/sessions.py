@@ -58,7 +58,7 @@ class SessionStore(dict):
         super().__setitem__(key, value)
         self._maybe_write(str(key), value)
 
-    def update(self, *args, **kwargs) -> None:  # type: ignore[override]
+    def update(self, *args, **kwargs) -> None:
         super().update(*args, **kwargs)
         if self.persist:
             for key in dict(*args, **kwargs):
