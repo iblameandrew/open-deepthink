@@ -73,6 +73,7 @@ from deepthink.chains import (
     get_brainstorming_epoch_map_chain,
 )
 from deepthink.qdad import run_qdad_pipeline
+from deepthink.qnn import run_qnn_pipeline
 from deepthink.knowledge_distillation import DistillationGraph
 from deepthink.utils import clean_and_parse_json, execute_code_in_sandbox
 from deepthink.self_attention import compute_self_attention
@@ -1358,48 +1359,6 @@ class GraphState(TypedDict):
     attention_edges: Annotated[dict, lambda a, b: {**a, **b}]
 
 
-def execute_code_in_sandbox(code: str) -> (bool, str):
-    """
-    Executes a string of Python code and captures its stdout/stderr.
-    Returns a tuple of (success: bool, output: str).
-    """
-    if not code:
-        return True, "No code to execute."
-
-    # Extract code from markdown block if present
-    code_match = re.search(r"```(?:python\n)?([\s\S]*?)```", code)
-    if code_match:
-        code = code_match.group(1).strip()
-
-    output_buffer = io.StringIO()
-    try:
-        with redirect_stdout(output_buffer), redirect_stderr(output_buffer):
-            # Using a restricted globals dict for a little more safety
-            exec(
-                code,
-                {
-                    "__builtins__": {
-                        "print": print,
-                        "range": range,
-                        "len": len,
-                        "str": str,
-                        "int": int,
-                        "float": float,
-                        "list": list,
-                        "dict": dict,
-                        "set": set,
-                        "tuple": tuple,
-                        "True": True,
-                        "False": False,
-                        "None": None,
-                    }
-                },
-            )
-        return True, output_buffer.getvalue()
-    except Exception as e:
-        return False, f"{output_buffer.getvalue()}\n\nERROR: {type(e).__name__}: {e}"
-
-
 def create_agent_node(llm, node_id):
     """
     Creates a node in the graph that represents an agent.
@@ -2656,6 +2615,37 @@ async def run_inference_from_state(payload: dict = Body(...)):
         )
 
 
+async def run_qnn_background(
+    llm,
+    synthesis_llm,
+    params,
+    user_prompt: str,
+    session_id: str,
+    document_context: str = "",
+    chat_history=None,
+):
+    """
+    Brainstorm background runner.
+
+    Delegates to deepthink.qnn.run_qnn_pipeline (same engine as the /qnn skill).
+    """
+
+    async def _log(msg: str):
+        await log_stream.put(msg)
+
+    await run_qnn_pipeline(
+        llm=llm,
+        user_prompt=user_prompt or "",
+        params=params or {},
+        synthesis_llm=synthesis_llm or llm,
+        document_context=document_context or "",
+        chat_history=chat_history or [],
+        log=_log,
+        session_id=session_id,
+        session_store=sessions,
+    )
+
+
 async def run_qdad_background(
     llm,
     synthesis_llm,
@@ -2963,6 +2953,47 @@ async def build_and_run_graph(payload: dict = Body(...)):
                 llamacpp_url=llamacpp_url,
                 llamacpp_api_key=llamacpp_api_key,
                 token_tracker=token_tracker,
+            )
+        )
+        return JSONResponse(
+            content={"message": "Graph started.", "session_id": session_id}
+        )
+
+    # ── Brainstorm (QNN): same library engine as `deepthink qnn` / /qnn skill ──
+    if mode == "brainstorm":
+        session_id = str(uuid.uuid4())
+        sessions[session_id] = {
+            "session_id": session_id,
+            "mode": "brainstorm",
+            "original_request": user_prompt,
+            "params": params,
+            "final_solution": None,
+            "all_rag_documents": [],
+            "all_layers_prompts": [],
+            "agent_personas": {},
+            "agent_outputs": {},
+            "memory": {},
+            "epoch": 0,
+            "max_epochs": int(params.get("num_epochs", 2) or 2),
+            "raptor_index": None,
+            "attention_edges": {},
+        }
+        await log_stream.put(f"__session_id__ {session_id}")
+        await log_stream.put(
+            "__start__ QNN Brainstorm\n"
+            "  Brief → Topology → Seeds → Personas\n"
+            "  → Epochs (forward / map / Mirror Descent / reframe)\n"
+            "  → Solution-Space Report"
+        )
+        asyncio.create_task(
+            run_qnn_background(
+                llm=llm,
+                synthesis_llm=synthesis_llm,
+                params=params,
+                user_prompt=user_prompt or "",
+                session_id=session_id,
+                document_context=document_context or "",
+                chat_history=payload.get("chat_history", []) or [],
             )
         )
         return JSONResponse(

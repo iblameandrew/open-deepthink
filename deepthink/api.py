@@ -62,6 +62,7 @@ async def run_qnn(
     chat_history: list[dict] | None = None,
     log: LogFn = None,
     session_id: str = "",
+    session_store: dict | None = None,
 ) -> dict[str, Any]:
     """
     Run a Qualitative Neural Network (brainstorm / solution-space) pipeline.
@@ -77,6 +78,7 @@ async def run_qnn(
         chat_history=chat_history,
         log=log,
         session_id=session_id,
+        session_store=session_store,
     )
 
 

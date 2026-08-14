@@ -1,3 +1,22 @@
+# Release Notes — `0.2.2`
+
+**Tag:** `0.2.2`
+**Date:** 2026-08-13
+**Tagline:** "Single-engine QNN + hardened runtime"
+
+### Engine
+* Brainstorm UI now runs `deepthink.qnn.run_qnn_pipeline` — same engine as the library API and `/qnn` skill
+* QNN forward pass, persona span, and Mirror Descent are parallel per layer (`asyncio.gather`)
+* Manual / massive topologies are no longer silently capped at 60 agents
+
+### Runtime
+* `execute_code_in_sandbox` is AST-gated and runs in an isolated subprocess with a timeout (duplicate copy removed from `app.py`)
+* Distillation token accounting uses tiktoken when available
+* Distillation LLM JSON is parsed through `parse_llm_json` instead of raw `json.loads`
+* Mirror Descent evaluations in distillation run concurrently
+
+---
+
 # Release Notes — `0.2.1`
 
 **Tag:** `0.2.1`

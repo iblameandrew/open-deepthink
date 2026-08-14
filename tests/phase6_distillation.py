@@ -96,10 +96,13 @@ chk("DistillationGraph initializes 12 unique agents across 7 layers", t4)
 # 5) _estimate_tokens
 def t5():
     g = DistillationGraph(DistillationMockLLM(), ["t"], "a")
-    assert g._estimate_tokens("a" * 100) == 25
+    n = g._estimate_tokens("a" * 100)
+    assert isinstance(n, int) and n >= 1
+    assert g._estimate_tokens("") == 0
+    assert g._estimate_tokens("word " * 400) > n
 
 
-chk("_estimate_tokens (1 token ~ 4 chars)", t5)
+chk("_estimate_tokens counts text (tiktoken or heuristic)", t5)
 
 
 # 6) total_tokens

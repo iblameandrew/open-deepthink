@@ -3,7 +3,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 import sys
 sys.path.insert(0, str(ROOT))
-from deepthink.utils import clean_and_parse_json, execute_code_in_sandbox
+from deepthink.utils import (
+    clean_and_parse_json,
+    estimate_tokens,
+    execute_code_in_sandbox,
+    parse_llm_json,
+)
 results = []
 def chk(name, fn):
     try:
@@ -71,6 +76,27 @@ def t15():
     success, _ = execute_code_in_sandbox("open('test.txt')")
     assert not success, "Sandbox must NOT allow open()"
 chk("sandbox blocks open() (security)", t15)
+
+def t16():
+    success, _ = execute_code_in_sandbox("print(('').__class__.__mro__)")
+    assert not success, "Sandbox must NOT allow dunder attribute walks"
+chk("sandbox blocks dunder attribute escape", t16)
+
+def t18():
+    n = estimate_tokens("hello world")
+    assert isinstance(n, int) and n >= 1
+    assert estimate_tokens("") == 0
+    assert estimate_tokens(None) == 0
+    long_n = estimate_tokens("word " * 200)
+    assert long_n > n
+chk("estimate_tokens returns positive counts", t18)
+
+def t19():
+    assert parse_llm_json('```json\n{"a": 1}\n```') == {"a": 1}
+    assert parse_llm_json({"already": True}) == {"already": True}
+    assert parse_llm_json("not json") == {}
+    assert parse_llm_json("not json", default={"ok": False}) == {"ok": False}
+chk("parse_llm_json handles messy LLM payloads", t19)
 
 for name, status, err in results:
     line = f"  [{status}] {name}"

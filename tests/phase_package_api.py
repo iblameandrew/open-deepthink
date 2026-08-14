@@ -170,6 +170,20 @@ def t4():
 chk("run_qnn + run_qdad library pipelines (mock LLM)", t4)
 
 
+def t4b():
+    from deepthink.qnn.pipeline import _clamp_topology
+
+    # Auto mode: soft-cap width so L*W stays ≤ 60
+    layers, width, epochs = _clamp_topology(10, 20, 3, manual=False)
+    assert layers * width <= 60
+    # Manual / massive: 10×10 must survive (README massive mode)
+    layers, width, epochs = _clamp_topology(10, 10, 4, manual=True)
+    assert (layers, width, epochs) == (10, 10, 4)
+
+
+chk("QNN topology clamp: auto caps, manual does not shrink 10×10", t4b)
+
+
 def t5():
     from deepthink.distillation import DistillationGraph
 

@@ -14,6 +14,7 @@ from deepthink.chains import (
     get_followup_question_chain,
     DISTILLATION_ARCHETYPES,
 )
+from deepthink.utils import estimate_tokens, parse_llm_json
 
 # PerplexityChain lives in its own module (used only by distillation mode for LLM-based quality scoring).
 # We import it here so the _compute_perplexity method can actually find the name.
@@ -160,8 +161,8 @@ class DistillationGraph:
 
     @staticmethod
     def _estimate_tokens(text: str) -> int:
-        """Rough estimate: 1 token ≈ 4 characters."""
-        return len(text) // 4
+        """Token count via tiktoken when available, else ~4 chars/token."""
+        return estimate_tokens(text)
 
     def _count_tokens(self, input_text: str, output_text: str):
         """Track input and output tokens separately."""
@@ -301,7 +302,6 @@ class DistillationGraph:
         await self._step_seed_and_followup(flat_agents)
 
         # ── Write dataset to file in real-time ──
-        # ── Write dataset to file in real-time ──
         self._write_dataset_to_file()
 
         # ── Calculate Perplexity (Quality Metric) ──
@@ -362,7 +362,7 @@ class DistillationGraph:
                 }
             )
             self._count_tokens(input_text, result)
-            parsed = json.loads(result)
+            parsed = parse_llm_json(result)
             return parsed.get("sub_questions", [f"Sub-question {i}" for i in range(12)])
         except Exception as e:
             await self.log(f"Task Master error: {e}")
@@ -485,12 +485,18 @@ Be thorough and analytical.
         current_grid_description = self._build_current_grid_description()
         await self.log(f"DISTILLATION_LOG: 📋 Current Grid Snapshot:\n{current_grid_description}")
 
-        for agent in flat_agents:
+        evals = await asyncio.gather(
+            *[self._evaluate_agent(agent, current_grid_description) for agent in flat_agents],
+            return_exceptions=True,
+        )
+
+        for agent, eval_result in zip(flat_agents, evals):
             if not self.is_running:
                 return
 
             try:
-                eval_result = await self._evaluate_agent(agent, current_grid_description)
+                if isinstance(eval_result, Exception):
+                    raise eval_result
                 difficulty = eval_result.get("difficulty", "Easy")
                 agent.difficulty_history.append(difficulty)
 
@@ -526,7 +532,7 @@ Be thorough and analytical.
         input_text = json.dumps(input_data)
         result_json = await chain.ainvoke(input_data)
         self._count_tokens(input_text, result_json)
-        return json.loads(result_json)
+        return parse_llm_json(result_json)
 
     async def _handle_hard_agent(
         self, agent: DistillationAgent, eval_result: dict, flat_agents: List[DistillationAgent]
@@ -593,7 +599,7 @@ Be thorough and analytical.
         input_text = json.dumps(input_data)
         result_json = await chain.ainvoke(input_data)
         self._count_tokens(input_text, result_json)
-        return json.loads(result_json)
+        return parse_llm_json(result_json)
 
     # ------------------------------------------------------------------
     # STEP 4: SYNTHESIZE FINAL ANSWER
@@ -672,7 +678,7 @@ Be thorough and analytical.
         try:
             result = await chain.ainvoke(input_data)
             self._count_tokens(input_text, result)
-            return json.loads(result).get("new_topics", self.topics)
+            return parse_llm_json(result).get("new_topics", self.topics)
         except Exception as e:
             await self.log(f"Seed Creator error: {e}")
             await self.log(f"DISTILLATION_LOG: ❌ Seed Creator failed: {e}")
@@ -692,7 +698,7 @@ Be thorough and analytical.
         try:
             result = await chain.ainvoke(input_data)
             self._count_tokens(input_text, result)
-            return json.loads(result).get("new_questions", [])
+            return parse_llm_json(result).get("new_questions", [])
         except Exception as e:
             await self.log(f"Followup error: {e}")
             return []
