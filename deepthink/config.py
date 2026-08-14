@@ -184,9 +184,9 @@ class Settings(BaseSettings):
     qnn_enable_self_attention: bool = Field(default=True)
 
     # --- QDAD defaults ---
-    qdad_grid_size: int = Field(default=4, ge=1, le=16)
+    qdad_grid_size: int = Field(default=3, ge=1, le=16)
     qdad_temperature_scale: float = Field(default=1.3, ge=0.0, le=2.0)
-    qdad_denoising_steps: int = Field(default=3, ge=1, le=20)
+    qdad_denoising_steps: int = Field(default=2, ge=1, le=20)
     qdad_noun_verb_temperature: float = Field(default=0.6, ge=0.0, le=2.0)
 
     # --- Distillation defaults ---

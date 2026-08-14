@@ -1,3 +1,33 @@
+# Release Notes — `0.3.0`
+
+**Tag:** `0.3.0`
+**Date:** 2026-08-14
+**Tagline:** "Honest engine — one GraphState, cost estimates, structural eval"
+
+### Architecture
+* Legacy RAPTOR, mock LLMs, and LangGraph node factories moved out of `app.py` into `deepthink/rag.py`, `deepthink/mocks.py`, `deepthink/runtime/`
+* `app.GraphState` is `deepthink.state.GraphState` (one type)
+* Unreachable leftover Brainstorm/algorithm graph builder removed from `/build_and_run_graph`
+* Empty `deepthink/nodes` package replaced by `deepthink/runtime`
+
+### Honesty & defaults
+* README + `docs/DESIGN_NOTES.md` name the real ops (lexical overlap, prompt rewrite, critic pass)
+* Quality versus a single prompt is **unevaluated**; `docs/EVAL.md` is the protocol if you later have budget
+* Auto topology cap is 24 agents; QDAD defaults are 3×3 × 2 critic steps
+* Manual UI defaults are 3×3, not 20×20
+
+### Production
+* `deepthink estimate` / `deepthink eval` (mock structural eval, no API key)
+* CLI refuses runs estimated at >80 LLM calls unless `--debug` or `--yes`
+* Disk-backed `SessionStore` under `.deepthink-state/sessions`
+* Library no longer calls `logging.basicConfig`
+* Pre-run cost line in the QNN pipeline and web start response
+
+### Tests
+* `tests/phase_honesty.py` + `tests/test_control_flow.py` (topology clamp, MD skip on last epoch, QDAD denoise count, sessions)
+
+---
+
 # Release Notes — `0.2.2`
 
 **Tag:** `0.2.2`

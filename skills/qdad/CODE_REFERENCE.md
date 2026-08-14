@@ -16,9 +16,9 @@ Do **not** require the user to know monorepo paths. The runner discovers `deepth
 
 | CLI | `params` key | Default |
 |-----|--------------|--------:|
-| `--n` | `grid_size` / `n` | 4 |
+| `--n` | `grid_size` / `n` | 3 |
 | `--temperature-scale` | `temperature_scale` | 1.3 |
-| `--denoising-steps` | `denoising_steps` | 3 |
+| `--denoising-steps` | `denoising_steps` | 2 |
 | `--noun-verb-temperature` | `noun_verb_temperature` | 0.6 |
 
 ## Example

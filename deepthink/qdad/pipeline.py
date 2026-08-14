@@ -42,9 +42,9 @@ async def run_qdad_pipeline(
             await result
 
     n, noise_temp, denoising_steps, nv_temp = clamp_params(
-        n=params.get("grid_size", params.get("n", 4)),
+        n=params.get("grid_size", params.get("n", 3)),
         noise_temp=params.get("temperature_scale", 1.3),
-        denoising_steps=params.get("denoising_steps", 3),
+        denoising_steps=params.get("denoising_steps", 2),
         nv_temp=params.get("noun_verb_temperature", 0.6),
     )
     enriched = enrich_prompt(user_prompt, document_context, chat_history)

@@ -61,6 +61,7 @@ dev = [
     "mypy>=1.8.0",
     "types-requests",
     "httpx",
+    "pytest>=8.0",
 ]
 skills = []
 ui = [
@@ -133,6 +134,9 @@ files = [
     "deepthink/__main__.py",
     "deepthink/providers.py",
     "deepthink/api.py",
+    "deepthink/cost.py",
+    "deepthink/sessions.py",
+    "deepthink/runtime/bus.py",
 ]
 
 [tool.pytest.ini_options]

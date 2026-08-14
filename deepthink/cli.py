@@ -25,7 +25,7 @@ def _print_log(msg: str) -> None:
 def _build_llm(args: argparse.Namespace):
     if getattr(args, "debug", False):
         try:
-            from app import CoderMockLLM
+            from deepthink.mocks import CoderMockLLM
 
             return CoderMockLLM()
         except Exception:
@@ -102,6 +102,23 @@ def cmd_qnn(args: argparse.Namespace) -> int:
     if args.epochs:
         params["num_epochs"] = args.epochs
 
+    from deepthink.cost import estimate_qnn_cost
+
+    est = estimate_qnn_cost(
+        layers=params["manual_layers"],
+        width=params["manual_width"],
+        epochs=params["num_epochs"],
+        qnn_mode=params["qnn_mode"],
+    )
+    print(est.summary_line(), file=sys.stderr)
+    if not args.debug and not getattr(args, "yes", False) and est.llm_calls > 80:
+        print(
+            "Refusing large run without --yes "
+            f"({est.llm_calls} estimated calls). Shrink topology or pass --yes.",
+            file=sys.stderr,
+        )
+        return 2
+
     llm = _build_llm(args)
 
     async def _run():
@@ -134,6 +151,21 @@ def cmd_qdad(args: argparse.Namespace) -> int:
         params["denoising_steps"] = args.steps
     if args.temperature is not None:
         params["temperature_scale"] = args.temperature
+
+    from deepthink.cost import estimate_qdad_cost
+
+    est = estimate_qdad_cost(
+        n=int(params.get("n") or params.get("grid_size") or 3),
+        denoising_steps=int(params.get("denoising_steps") or 2),
+    )
+    print(est.summary_line(), file=sys.stderr)
+    if not args.debug and not getattr(args, "yes", False) and est.llm_calls > 80:
+        print(
+            "Refusing large run without --yes "
+            f"({est.llm_calls} estimated calls). Shrink N/steps or pass --yes.",
+            file=sys.stderr,
+        )
+        return 2
 
     llm = _build_llm(args)
 
@@ -200,6 +232,11 @@ def _add_provider_args(p: argparse.ArgumentParser) -> None:
         metavar="PATH",
         help="Write full result JSON to PATH",
     )
+    p.add_argument(
+        "--yes",
+        action="store_true",
+        help="Allow runs estimated at more than 80 LLM calls",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -238,7 +275,46 @@ def build_parser() -> argparse.ArgumentParser:
     _add_provider_args(p_qdad)
     p_qdad.set_defaults(func=cmd_qdad)
 
+    p_est = sub.add_parser("estimate", help="Print LLM-call estimate (no network)")
+    p_est.add_argument("kind", choices=("qnn", "qdad", "distill"))
+    p_est.add_argument("--layers", type=int, default=3)
+    p_est.add_argument("--width", type=int, default=3)
+    p_est.add_argument("--epochs", type=int, default=2)
+    p_est.add_argument("--n", type=int, default=3)
+    p_est.add_argument("--steps", type=int, default=2)
+    p_est.set_defaults(func=cmd_estimate)
+
+    p_eval = sub.add_parser("eval", help="Free structural eval (mock LLMs, no API key)")
+    p_eval.set_defaults(func=cmd_eval)
+
     return parser
+
+
+def cmd_estimate(args: argparse.Namespace) -> int:
+    from deepthink.cost import (
+        estimate_distillation_cost,
+        estimate_qdad_cost,
+        estimate_qnn_cost,
+    )
+
+    if args.kind == "qnn":
+        est = estimate_qnn_cost(args.layers, args.width, args.epochs)
+    elif args.kind == "qdad":
+        est = estimate_qdad_cost(args.n, args.steps)
+    else:
+        est = estimate_distillation_cost(args.epochs)
+    print(est.summary_line())
+    print(json.dumps(est.to_dict(), indent=2))
+    return 0
+
+
+def cmd_eval(_args: argparse.Namespace) -> int:
+    from deepthink.eval_structural import run_structural_eval_sync
+
+    result = run_structural_eval_sync()
+    print(json.dumps(result.to_dict(), indent=2))
+    print(f"STRUCTURAL EVAL: {result.passed}/{result.total} " + ("OK" if result.ok else "FAIL"))
+    return 0 if result.ok else 1
 
 
 def main(argv: list[str] | None = None) -> None:
