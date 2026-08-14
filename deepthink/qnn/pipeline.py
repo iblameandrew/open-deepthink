@@ -8,28 +8,28 @@ mocks, etc.). Used by the open-deepthink Brainstorm UI *and* the portable
 
 from __future__ import annotations
 
+import asyncio
 import json
 import random
-import traceback
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from deepthink.utils import clean_and_parse_json
-from deepthink.self_attention import compute_self_attention
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 
 from deepthink.chains.brainstorm_chains import (
-    get_complexity_estimator_chain,
+    get_brainstorming_epoch_map_chain,
+    get_brainstorming_mirror_descent_chain,
+    get_brainstorming_polisher_chain,
+    get_brainstorming_reframer_chain,
     get_brainstorming_seed_chain,
     get_brainstorming_spanner_chain,
-    get_brainstorming_mirror_descent_chain,
-    get_brainstorming_reframer_chain,
-    get_brainstorming_epoch_map_chain,
     get_brainstorming_synthesis_chain,
-    get_brainstorming_polisher_chain,
+    get_complexity_estimator_chain,
     get_problem_summarizer_chain,
 )
+from deepthink.self_attention import compute_self_attention
+from deepthink.utils import clean_and_parse_json
 
 
 LogFn = Optional[Callable[[str], Any]]
@@ -77,14 +77,167 @@ async def _log(log: LogFn, msg: str) -> None:
         await result
 
 
-def _clamp_topology(layers: int, width: int, epochs: int) -> tuple:
-    layers = max(1, min(20, int(layers)))
-    width = max(1, min(20, int(width)))
-    epochs = max(1, min(10, int(epochs)))
-    # Soft budget unless caller already chose manual large
-    if layers * width > 60:
+def _clamp_topology(
+    layers: int, width: int, epochs: int, *, manual: bool = False
+) -> tuple:
+    """Bound topology. Auto mode keeps a 60-agent soft cap; manual/massive does not."""
+    layers = max(1, min(100, int(layers)))
+    width = max(1, min(100, int(width)))
+    epochs = max(1, min(20, int(epochs)))
+    if not manual and layers * width > 60:
         width = max(1, 60 // layers)
     return layers, width, epochs
+
+
+def _persist_session(session_store, session_id: str, payload: Dict[str, Any]) -> None:
+    if session_store is None or not session_id or session_id not in session_store:
+        return
+    session_store[session_id].update(payload)
+
+
+async def _span_persona(spanner, user_prompt: str, guiding_words: str, i: int, j: int, brief: str):
+    raw = await spanner.ainvoke(
+        {
+            "problem": user_prompt,
+            "guiding_words": guiding_words,
+            "layer_index": i,
+            "node_index": j,
+            "document_context": brief,
+        }
+    )
+    persona = clean_and_parse_json(raw) or {}
+    if not isinstance(persona, dict):
+        persona = {}
+    system_prompt = persona.get("system_prompt") or (
+        f"You are a QNN expert spanned from: {guiding_words}. "
+        f"Layer {i} ({'diverge' if i == 0 else 'converge'}). Map strategies with falsifiers."
+    )
+    persona.setdefault("name", f"Agent_{i}_{j}")
+    persona.setdefault("specialty", "Word-vector specialist")
+    persona.setdefault("guiding_words", guiding_words)
+    persona["system_prompt"] = system_prompt
+    return f"agent_{i}_{j}", persona, system_prompt
+
+
+async def _run_agent_cell(
+    agent_chain,
+    *,
+    node_id: str,
+    layer_index: int,
+    persona: Dict[str, Any],
+    brief: str,
+    user_prompt: str,
+    current_problem: str,
+    epoch: int,
+    prev_layer_outputs: List[Any],
+    memory: Dict[str, List[Any]],
+    agent_outputs_snapshot: Dict[str, Any],
+    all_layers_prompts: List[List[str]],
+    agent_personas: Dict[str, Any],
+    enable_attn: bool,
+    top_k: int,
+    log: LogFn,
+) -> tuple:
+    agent_prompt = (
+        f"YOU ARE {str(persona.get('name', 'Expert')).upper()}, "
+        f"A {str(persona.get('specialty', 'Specialist')).upper()}.\n\n"
+        f"{persona.get('system_prompt', '')}"
+    )
+
+    attention_block = ""
+    edge_dicts: List[dict] = []
+    if enable_attn and top_k > 0:
+        state_snap = {
+            "epoch": epoch,
+            "all_layers_prompts": all_layers_prompts,
+            "agent_personas": agent_personas,
+            "agent_outputs": agent_outputs_snapshot,
+            "memory": memory,
+        }
+        try:
+            edges, attention_block = compute_self_attention(
+                state_snap, node_id, top_k=top_k
+            )
+            if edges:
+                edge_dicts = [e.to_dict() for e in edges]
+                await _log(
+                    log,
+                    f"LOG: [QNN ATTEND] {node_id} → "
+                    + ", ".join(f"{e.to_id}({e.strength})" for e in edges),
+                )
+        except Exception as ae:
+            await _log(log, f"WARNING: [QNN ATTEND] {node_id}: {ae}")
+
+    if layer_index == 0:
+        input_data = f"""## QNN Brief
+{brief}
+
+## Original Request (ground truth — do not replace)
+{user_prompt}
+
+## Thinking Challenge (epoch {epoch})
+{current_problem}
+
+## Layer 0 Role
+Divergent exploration. Span strategies and mechanisms. Do NOT write production patches.
+
+{attention_block}
+"""
+    else:
+        input_data = f"""## QNN Brief
+{brief}
+
+## Original Request (ground truth — do not replace)
+{user_prompt}
+
+## Thinking Challenge (epoch {epoch})
+{current_problem}
+
+## Layer {layer_index} Role
+Convergent / critical. Critique or combine upstream. Cite agent_id. No production patches.
+
+## Upstream Layer Outputs (graph neighbors)
+{json.dumps(prev_layer_outputs, indent=2)}
+
+{attention_block}
+"""
+
+    mem_str = "\n".join(f"- {json.dumps(m)}" for m in memory.get(node_id, [])[-5:])
+    full_prompt = f"""
+#System Prompt (Your Persona & Task):
+---
+{agent_prompt}
+---
+#Your Memory (Past Actions):
+---
+{mem_str or "No past actions."}
+---
+#Input Data to Process:
+---
+{input_data}
+---
+# Your JSON response (required keys):
+{{
+  "original_problem": "<brief or challenge you addressed>",
+  "proposed_solution": "<strategic angle / mechanism — NOT a production patch>",
+  "reasoning": "<why this might break the impasse>",
+  "falsifiers": "<evidence that would kill this angle>",
+  "risks": "<ways it could fail>",
+  "skills_used": []
+}}
+"""
+    raw_out = await agent_chain.ainvoke({"input": full_prompt})
+    parsed = clean_and_parse_json(raw_out)
+    if not isinstance(parsed, dict):
+        parsed = {
+            "original_problem": current_problem,
+            "proposed_solution": str(raw_out)[:2000],
+            "reasoning": "unparsed agent output",
+            "falsifiers": "",
+            "risks": "",
+            "skills_used": [],
+        }
+    return node_id, parsed, edge_dicts
 
 
 async def run_qnn_pipeline(
@@ -97,6 +250,7 @@ async def run_qnn_pipeline(
     chat_history: Optional[List[dict]] = None,
     log: LogFn = None,
     session_id: str = "",
+    session_store: Optional[dict] = None,
 ) -> Dict[str, Any]:
     """
     Run the full Qualitative Neural Network (brainstorm) pipeline.
@@ -127,6 +281,8 @@ async def run_qnn_pipeline(
         Optional ``async/sync (str) -> None`` callback for progress lines.
     session_id : str
         Opaque id for callers that persist sessions.
+    session_store : dict, optional
+        Optional ``{session_id: state}`` map updated in place (web UI).
 
     Returns
     -------
@@ -166,8 +322,9 @@ async def run_qnn_pipeline(
     qnn_mode = str(p.get("qnn_mode", "auto")).lower()
     epochs = max(1, int(p.get("num_epochs", 2)))
     layers, width = 2, 3
+    manual = qnn_mode == "manual"
 
-    if qnn_mode == "manual":
+    if manual:
         layers = int(p.get("manual_layers", 3))
         width = int(p.get("manual_width", 3))
         await _log(
@@ -197,7 +354,7 @@ async def run_qnn_pipeline(
             await _log(log, f"WARNING: complexity estimator failed ({e}); defaults.")
             layers, width, epochs = 2, 3, 2
 
-    layers, width, epochs = _clamp_topology(layers, width, epochs)
+    layers, width, epochs = _clamp_topology(layers, width, epochs, manual=manual)
     V = max(2, int(p.get("vector_word_size", 6)))
     top_k = max(0, int(p.get("attention_top_k", 5)))
     enable_attn = bool(p.get("enable_self_attention", True))
@@ -254,36 +411,21 @@ async def run_qnn_pipeline(
         column_guiding_words.append(" ".join(sample))
         await _log(log, f"LOG: [QNN STEP 2] Column {j} guiding_words: {column_guiding_words[-1]}")
 
-    # ── Step 3: Span personas ──────────────────────────────────────
+    # ── Step 3: Span personas (parallel per layer) ─────────────────
     await _log(log, f"LOG: [QNN STEP 3] Spanning {layers}×{width} personas...")
     spanner = get_brainstorming_spanner_chain(llm)
     agent_personas: Dict[str, Any] = {}
     all_layers_prompts: List[List[str]] = []
 
     for i in range(layers):
+        spanned = await asyncio.gather(
+            *[
+                _span_persona(spanner, user_prompt, column_guiding_words[j], i, j, brief)
+                for j in range(width)
+            ]
+        )
         layer_prompts: List[str] = []
-        for j in range(width):
-            node_id = f"agent_{i}_{j}"
-            raw = await spanner.ainvoke(
-                {
-                    "problem": user_prompt,
-                    "guiding_words": column_guiding_words[j],
-                    "layer_index": i,
-                    "node_index": j,
-                    "document_context": brief,
-                }
-            )
-            persona = clean_and_parse_json(raw) or {}
-            if not isinstance(persona, dict):
-                persona = {}
-            system_prompt = persona.get("system_prompt") or (
-                f"You are a QNN expert spanned from: {column_guiding_words[j]}. "
-                f"Layer {i} ({'diverge' if i == 0 else 'converge'}). Map strategies with falsifiers."
-            )
-            persona.setdefault("name", f"Agent_{i}_{j}")
-            persona.setdefault("specialty", "Word-vector specialist")
-            persona.setdefault("guiding_words", column_guiding_words[j])
-            persona["system_prompt"] = system_prompt
+        for node_id, persona, system_prompt in spanned:
             agent_personas[node_id] = persona
             layer_prompts.append(system_prompt)
             await _log(
@@ -301,132 +443,92 @@ async def run_qnn_pipeline(
 
     agent_chain = ChatPromptTemplate.from_template("{input}") | llm | StrOutputParser()
 
+    def _build_result(report: str, epoch: int, reasoning: str) -> Dict[str, Any]:
+        final = {
+            "mode": "brainstorm",
+            "proposed_solution": report,
+            "reasoning": reasoning,
+            "topology": topology,
+            "epoch": epoch,
+        }
+        return QNNResult(
+            mode="brainstorm",
+            proposed_solution=report,
+            reasoning=reasoning,
+            topology=topology,
+            seed_pool=all_seed_words,
+            column_guiding_words=column_guiding_words,
+            agent_personas=agent_personas,
+            attention_edges=attention_edges,
+            epoch_maps=epoch_maps,
+            final_solution=final,
+            params=p,
+        ).to_dict()
+
     for epoch in range(epochs):
         await _log(log, f"--- [QNN STEP 4] Epoch {epoch}/{epochs - 1} forward ---")
         agent_outputs: Dict[str, Any] = {}
 
         for i in range(layers):
-            for j in range(width):
-                node_id = f"agent_{i}_{j}"
-                persona = agent_personas[node_id]
-                agent_prompt = (
-                    f"YOU ARE {str(persona.get('name', 'Expert')).upper()}, "
-                    f"A {str(persona.get('specialty', 'Specialist')).upper()}.\n\n"
-                    f"{persona.get('system_prompt', '')}"
-                )
+            prev_layer_outputs: List[Any] = []
+            if i > 0:
+                for k in range(width):
+                    prev_id = f"agent_{i - 1}_{k}"
+                    if prev_id in agent_outputs:
+                        up = agent_outputs[prev_id]
+                        if isinstance(up, dict):
+                            prev_layer_outputs.append({"agent_id": prev_id, **up})
+                        else:
+                            prev_layer_outputs.append({"agent_id": prev_id, "output": up})
 
-                # Upstream = previous layer (graph neighbors)
-                prev_layer_outputs: List[Any] = []
-                if i > 0:
-                    for k in range(width):
-                        prev_id = f"agent_{i - 1}_{k}"
-                        if prev_id in agent_outputs:
-                            up = agent_outputs[prev_id]
-                            if isinstance(up, dict):
-                                prev_layer_outputs.append({"agent_id": prev_id, **up})
-                            else:
-                                prev_layer_outputs.append({"agent_id": prev_id, "output": up})
-
-                # Qualitative self-attention over non-local past neurons
-                attention_block = ""
-                if enable_attn and top_k > 0:
-                    state_snap = {
-                        "epoch": epoch,
-                        "all_layers_prompts": all_layers_prompts,
-                        "agent_personas": agent_personas,
-                        "agent_outputs": agent_outputs,
-                        "memory": memory,
-                    }
-                    try:
-                        edges, attention_block = compute_self_attention(
-                            state_snap, node_id, top_k=top_k
-                        )
-                        if edges:
-                            attention_edges[node_id] = [e.to_dict() for e in edges]
-                            await _log(
-                                log,
-                                f"LOG: [QNN ATTEND] {node_id} → "
-                                + ", ".join(f"{e.to_id}({e.strength})" for e in edges),
-                            )
-                    except Exception as ae:
-                        await _log(log, f"WARNING: [QNN ATTEND] {node_id}: {ae}")
-
-                if i == 0:
-                    input_data = f"""## QNN Brief
-{brief}
-
-## Original Request (ground truth — do not replace)
-{user_prompt}
-
-## Thinking Challenge (epoch {epoch})
-{current_problem}
-
-## Layer 0 Role
-Divergent exploration. Span strategies and mechanisms. Do NOT write production patches.
-
-{attention_block}
-"""
-                else:
-                    input_data = f"""## QNN Brief
-{brief}
-
-## Original Request (ground truth — do not replace)
-{user_prompt}
-
-## Thinking Challenge (epoch {epoch})
-{current_problem}
-
-## Layer {i} Role
-Convergent / critical. Critique or combine upstream. Cite agent_id. No production patches.
-
-## Upstream Layer Outputs (graph neighbors)
-{json.dumps(prev_layer_outputs, indent=2)}
-
-{attention_block}
-"""
-
-                mem_str = "\n".join(f"- {json.dumps(m)}" for m in memory.get(node_id, [])[-5:])
-                full_prompt = f"""
-#System Prompt (Your Persona & Task):
----
-{agent_prompt}
----
-#Your Memory (Past Actions):
----
-{mem_str or "No past actions."}
----
-#Input Data to Process:
----
-{input_data}
----
-# Your JSON response (required keys):
-{{
-  "original_problem": "<brief or challenge you addressed>",
-  "proposed_solution": "<strategic angle / mechanism — NOT a production patch>",
-  "reasoning": "<why this might break the impasse>",
-  "falsifiers": "<evidence that would kill this angle>",
-  "risks": "<ways it could fail>",
-  "skills_used": []
-}}
-"""
-                raw_out = await agent_chain.ainvoke({"input": full_prompt})
-                parsed = clean_and_parse_json(raw_out)
-                if not isinstance(parsed, dict):
-                    parsed = {
-                        "original_problem": current_problem,
-                        "proposed_solution": str(raw_out)[:2000],
-                        "reasoning": "unparsed agent output",
-                        "falsifiers": "",
-                        "risks": "",
-                        "skills_used": [],
-                    }
+            snapshot = dict(agent_outputs)
+            layer_results = await asyncio.gather(
+                *[
+                    _run_agent_cell(
+                        agent_chain,
+                        node_id=f"agent_{i}_{j}",
+                        layer_index=i,
+                        persona=agent_personas[f"agent_{i}_{j}"],
+                        brief=brief,
+                        user_prompt=user_prompt,
+                        current_problem=current_problem,
+                        epoch=epoch,
+                        prev_layer_outputs=prev_layer_outputs,
+                        memory=memory,
+                        agent_outputs_snapshot=snapshot,
+                        all_layers_prompts=all_layers_prompts,
+                        agent_personas=agent_personas,
+                        enable_attn=enable_attn,
+                        top_k=top_k,
+                        log=log,
+                    )
+                    for j in range(width)
+                ]
+            )
+            for node_id, parsed, edge_dicts in layer_results:
                 agent_outputs[node_id] = parsed
                 memory.setdefault(node_id, []).append(parsed)
+                if edge_dicts:
+                    attention_edges[node_id] = edge_dicts
                 await _log(
                     log,
                     f"SUCCESS: {node_id} epoch={epoch} "
                     f"sol={str(parsed.get('proposed_solution', ''))[:80]}…",
                 )
+
+        _persist_session(
+            session_store,
+            session_id,
+            {
+                "agent_outputs": dict(agent_outputs),
+                "memory": {k: list(v) for k, v in memory.items()},
+                "attention_edges": dict(attention_edges),
+                "agent_personas": agent_personas,
+                "all_layers_prompts": all_layers_prompts,
+                "epoch": epoch,
+                "current_problem": current_problem,
+            },
+        )
 
         # Epoch map / synthesis
         reflections = []
@@ -457,10 +559,11 @@ Convergent / critical. Critique or combine upstream. Cite agent_id. No productio
             epoch_maps.append(epoch_map)
             previous_solution = epoch_map
 
-            # Mirror Descent
+            # Mirror Descent — evolve every persona in parallel
             await _log(log, "LOG: [QNN STEP 4C] Mirror Descent (persona evolution)...")
             md = get_brainstorming_mirror_descent_chain(llm, lr)
-            for nid, persona in list(agent_personas.items()):
+
+            async def _evolve(nid: str, persona: dict):
                 try:
                     out = agent_outputs.get(nid, {})
                     new_prompt = await md.ainvoke(
@@ -470,11 +573,22 @@ Convergent / critical. Critique or combine upstream. Cite agent_id. No productio
                         }
                     )
                     if isinstance(new_prompt, str) and len(new_prompt.strip()) > 40:
-                        persona["system_prompt"] = new_prompt.strip()
-                        li, wi = map(int, nid.split("_")[1:])
-                        all_layers_prompts[li][wi] = persona["system_prompt"]
+                        return nid, new_prompt.strip(), None
+                    return nid, None, None
                 except Exception as me:
-                    await _log(log, f"WARNING: Mirror Descent failed for {nid}: {me}")
+                    return nid, None, me
+
+            evolved = await asyncio.gather(
+                *[_evolve(nid, persona) for nid, persona in list(agent_personas.items())]
+            )
+            for nid, new_prompt, err in evolved:
+                if err is not None:
+                    await _log(log, f"WARNING: Mirror Descent failed for {nid}: {err}")
+                    continue
+                if new_prompt:
+                    agent_personas[nid]["system_prompt"] = new_prompt
+                    li, wi = map(int, nid.split("_")[1:])
+                    all_layers_prompts[li][wi] = new_prompt
 
             # Reframe
             await _log(log, "LOG: [QNN STEP 4D] Reframe thinking challenge...")
@@ -493,8 +607,8 @@ Convergent / critical. Critique or combine upstream. Cite agent_id. No productio
                 elif isinstance(reframed, str) and reframed.strip():
                     current_problem = reframed.strip()
                 await _log(log, f"LOG: [QNN STEP 4D] New challenge: {current_problem[:160]}…")
-            except Exception as re:
-                await _log(log, f"WARNING: reframe failed: {re}")
+            except Exception as re_err:
+                await _log(log, f"WARNING: reframe failed: {re_err}")
         else:
             await _log(log, "LOG: [QNN STEP 5] Final Solution-Space Report...")
             draft = await get_brainstorming_synthesis_chain(synth).ainvoke(
@@ -512,32 +626,32 @@ Convergent / critical. Critique or combine upstream. Cite agent_id. No productio
                 }
             )
             report = polished if isinstance(polished, str) and polished.strip() else draft
-            final = {
-                "mode": "brainstorm",
-                "proposed_solution": report,
-                "reasoning": "QNN Solution-Space Report complete.",
-                "topology": topology,
-                "epoch": epoch,
-            }
-            result = QNNResult(
-                mode="brainstorm",
-                proposed_solution=report,
-                reasoning=final["reasoning"],
-                topology=topology,
-                seed_pool=all_seed_words,
-                column_guiding_words=column_guiding_words,
-                agent_personas=agent_personas,
-                attention_edges=attention_edges,
-                epoch_maps=epoch_maps,
-                final_solution=final,
-                params=p,
+            result = _build_result(report, epoch, "QNN Solution-Space Report complete.")
+            _persist_session(
+                session_store,
+                session_id,
+                {
+                    "final_solution": result["final_solution"],
+                    "agent_personas": agent_personas,
+                    "attention_edges": attention_edges,
+                    "all_layers_prompts": all_layers_prompts,
+                    "column_guiding_words": column_guiding_words,
+                    "epoch_maps": epoch_maps,
+                },
             )
+            await _log(log, f"FINAL_ANSWER: {json.dumps(result['final_solution'])}")
             await _log(log, "SUCCESS: [QNN] Solution-Space Report complete.")
-            return result.to_dict()
+            return result
 
     # Fallback if epochs==0 somehow
-    return QNNResult(
+    fallback_result = QNNResult(
         proposed_solution="QNN completed without a final report.",
         topology=topology,
         params=p,
     ).to_dict()
+    _persist_session(
+        session_store,
+        session_id,
+        {"final_solution": fallback_result.get("final_solution") or fallback_result},
+    )
+    return fallback_result
