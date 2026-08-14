@@ -18,10 +18,10 @@ from .pipeline import run_qdad_pipeline
 def default_qdad_params():
     """Documented QDAD defaults for harnesses / library callers."""
     return {
-        "grid_size": 4,
-        "n": 4,
+        "grid_size": 3,
+        "n": 3,
         "temperature_scale": 1.3,
-        "denoising_steps": 3,
+        "denoising_steps": 2,
         "noun_verb_temperature": 0.6,
     }
 

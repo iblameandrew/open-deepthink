@@ -157,12 +157,13 @@
                 </div>
                 <div id="manual-qnn-controls" class="app-divider hidden" style="gap: 0.75rem; align-items: center; flex-wrap: wrap;">
                     <label class="app-hint">Layers (depth):
-                        <input type="number" id="manual_layers" class="app-input--compact app-input--medium" value="20" min="1" step="1">
+                        <input type="number" id="manual_layers" class="app-input--compact app-input--medium" value="3" min="1" step="1">
                     </label>
                     <label class="app-hint">Width (agents per layer):
-                        <input type="number" id="manual_width" class="app-input--compact app-input--medium" value="20" min="1" step="1">
+                        <input type="number" id="manual_width" class="app-input--compact app-input--medium" value="3" min="1" step="1">
                     </label>
-                    <span class="app-hint app-hint--danger">⚠️ Unlimited dimensions — massive QNNs use lots of RAM, tokens, time, and cost</span>
+                    <span class="app-hint app-hint--danger">⚠️ Each extra layer×width×epoch is more LLM calls. Start 2×2×1 or 3×3×2. Auto mode caps at 24 agents.</span>
+                    <span class="app-hint" id="qnn-cost-estimate">Est. LLM calls: —</span>
                 </div>
             </div>
 
@@ -219,7 +220,7 @@
                 <div class="app-control-group">
                     <label for="qdad_grid_size">N (Grid Size)</label>
                     <input type="number" id="qdad_grid_size" class="app-input--compact app-input--narrow"
-                        value="4" min="2" max="8" step="1" title="Creates an N×N grid of feature agents">
+                        value="3" min="2" max="8" step="1" title="Creates an N×N grid of feature agents">
                 </div>
                 <div class="app-control-group">
                     <label for="qdad_temperature_scale">Temperature Scale</label>
@@ -229,7 +230,7 @@
                 <div class="app-control-group">
                     <label for="qdad_denoising_steps">Denoising Steps</label>
                     <input type="number" id="qdad_denoising_steps" class="app-input--compact app-input--narrow"
-                        value="3" min="1" max="6" step="1" title="Critique / refinement rounds">
+                        value="2" min="1" max="6" step="1" title="Critique / refinement rounds">
                 </div>
                 <div class="app-control-group">
                     <label for="qdad_noun_verb_temp">Noun/Verb Temperature</label>
@@ -245,9 +246,9 @@
             <div class="app-subpanel" style="margin-top: 0.75rem;">
                 <div class="app-subpanel__title">Qualitative Diffusion App Designer (QDAD)</div>
                 <p class="app-hint" style="margin: 0;">
-                    Language is the computational medium. Nouns &amp; verbs = orthogonal basis.
-                    High temperature = controlled qualitative noise. Critics = reverse diffusion / score matching.
-                    Vague Midjourney-style prompt → concrete agentic coding prompt — the way Midjourney turns a prompt into an image.
+                    N×N noun×verb grid: high-temp invent, then critic rewrite, then one synthesizer.
+                    Default 3×3 × 2 critic steps (~29 LLM calls). Vague prompt → structured app-build brief.
+                    <span id="qdad-cost-estimate">Est. LLM calls: —</span>
                 </p>
             </div>
 
@@ -1417,6 +1418,45 @@
             };
             setupQnnModeToggle();
 
+            const estimateQnnCalls = (layers, width, epochs, isAuto) => {
+                const L = Math.max(1, layers || 3);
+                const W = Math.max(1, width || 3);
+                const E = Math.max(1, epochs || 2);
+                const agents = L * W;
+                const complexity = isAuto ? 1 : 0;
+                return 3 + complexity + (2 * E) + (2 * E * agents);
+            };
+            const estimateQdadCalls = (n, steps) => {
+                const N = Math.max(2, n || 3);
+                const S = Math.max(1, steps || 2);
+                return 2 + N * N * (1 + S);
+            };
+            const refreshCostHints = () => {
+                const el = document.getElementById('qnn-cost-estimate');
+                if (el) {
+                    const isAuto = document.getElementById('qnn_auto')?.checked;
+                    const L = parseInt(document.getElementById('manual_layers')?.value, 10) || 3;
+                    const W = parseInt(document.getElementById('manual_width')?.value, 10) || 3;
+                    const E = parseInt(document.getElementById('brainstorm_epochs')?.value, 10) || 2;
+                    const calls = isAuto
+                        ? 'auto (typically 9–45; cap 24 agents)'
+                        : String(estimateQnnCalls(L, W, E, false));
+                    el.textContent = `Est. LLM calls: ${calls}`;
+                }
+                const qel = document.getElementById('qdad-cost-estimate');
+                if (qel) {
+                    const n = parseInt(document.getElementById('qdad_grid_size')?.value, 10) || 3;
+                    const s = parseInt(document.getElementById('qdad_denoising_steps')?.value, 10) || 2;
+                    qel.textContent = `Est. LLM calls: ${estimateQdadCalls(n, s)}`;
+                }
+            };
+            ['manual_layers', 'manual_width', 'brainstorm_epochs', 'qdad_grid_size', 'qdad_denoising_steps'].forEach((id) => {
+                document.getElementById(id)?.addEventListener('input', refreshCostHints);
+            });
+            document.getElementById('qnn_auto')?.addEventListener('change', refreshCostHints);
+            document.getElementById('qnn_manual')?.addEventListener('change', refreshCostHints);
+            refreshCostHints();
+
             const getProviderIsLocal = () =>
                 (document.getElementById('llm-provider')?.value || 'openrouter') === 'llamacpp';
 
@@ -1501,8 +1541,8 @@
                         llamacpp_model: llamacppModel,
                         synthesis_model: synthesisModel,
                         agent_models: agentModels,
-                        grid_size: parseInt(document.getElementById('qdad_grid_size')?.value) || 4,
-                        n: parseInt(document.getElementById('qdad_grid_size')?.value) || 4,
+                        grid_size: parseInt(document.getElementById('qdad_grid_size')?.value) || 3,
+                        n: parseInt(document.getElementById('qdad_grid_size')?.value) || 3,
                         temperature_scale: parseFloat(document.getElementById('qdad_temperature_scale')?.value) || 1.3,
                         denoising_steps: parseInt(document.getElementById('qdad_denoising_steps')?.value) || 3,
                         noun_verb_temperature: parseFloat(document.getElementById('qdad_noun_verb_temp')?.value) || 0.6,
@@ -1563,7 +1603,7 @@
             });
 
             QnnMemoryCalculator.init('qdad-mem-calc', () => {
-                const n = parseInt(document.getElementById('qdad_grid_size')?.value) || 4;
+                const n = parseInt(document.getElementById('qdad_grid_size')?.value) || 3;
                 const steps = parseInt(document.getElementById('qdad_denoising_steps')?.value) || 3;
                 const ramGb = parseFloat(document.getElementById('qdad-ram-gb')?.value) || 8;
                 return {

@@ -173,10 +173,10 @@ chk("run_qnn + run_qdad library pipelines (mock LLM)", t4)
 def t4b():
     from deepthink.qnn.pipeline import _clamp_topology
 
-    # Auto mode: soft-cap width so L*W stays ≤ 60
+    # Auto mode: laptop cap so L*W stays ≤ 24
     layers, width, epochs = _clamp_topology(10, 20, 3, manual=False)
-    assert layers * width <= 60
-    # Manual / massive: 10×10 must survive (README massive mode)
+    assert layers * width <= 24
+    # Manual: 10×10 must survive (explicit opt-in)
     layers, width, epochs = _clamp_topology(10, 10, 4, manual=True)
     assert (layers, width, epochs) == (10, 10, 4)
 
@@ -292,6 +292,7 @@ def t8():
     # subcommands exist
     help_txt = p.format_help()
     assert "qnn" in help_txt and "qdad" in help_txt and "serve" in help_txt
+    assert "estimate" in help_txt and "eval" in help_txt
 
 
 chk("CLI exposes qnn / qdad / serve", t8)

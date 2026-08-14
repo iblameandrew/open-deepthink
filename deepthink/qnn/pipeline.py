@@ -80,13 +80,22 @@ async def _log(log: LogFn, msg: str) -> None:
 def _clamp_topology(
     layers: int, width: int, epochs: int, *, manual: bool = False
 ) -> tuple:
-    """Bound topology. Auto mode keeps a 60-agent soft cap; manual/massive does not."""
+    """Bound topology. Auto mode keeps a 24-agent laptop cap; manual does not."""
+    from deepthink.cost import AUTO_AGENT_CAP
+
     layers = max(1, min(100, int(layers)))
     width = max(1, min(100, int(width)))
     epochs = max(1, min(20, int(epochs)))
-    if not manual and layers * width > 60:
-        width = max(1, 60 // layers)
+    if not manual and layers * width > AUTO_AGENT_CAP:
+        width = max(1, AUTO_AGENT_CAP // layers)
     return layers, width, epochs
+
+
+def clamp_qnn_topology(
+    layers: int, width: int, epochs: int, *, manual: bool = False
+) -> tuple:
+    """Public alias of the topology clamp used by the pipeline."""
+    return _clamp_topology(layers, width, epochs, manual=manual)
 
 
 def _persist_session(session_store, session_id: str, payload: Dict[str, Any]) -> None:
@@ -301,6 +310,20 @@ async def run_qnn_pipeline(
 
     await _log(log, "--- [QNN] Qualitative Neural Network pipeline ---")
     await _log(log, f"LOG: [QNN] session={session_id or 'local'} params={p}")
+    try:
+        from deepthink.cost import estimate_qnn_cost
+
+        est = estimate_qnn_cost(
+            layers=int(p.get("manual_layers", 3) or 3),
+            width=int(p.get("manual_width", 3) or 3),
+            epochs=int(p.get("num_epochs", 2) or 2),
+            qnn_mode=str(p.get("qnn_mode", "auto")),
+            has_document_context=bool(document_context),
+            enable_self_attention=bool(p.get("enable_self_attention", True)),
+        )
+        await _log(log, f"LOG: [COST] {est.summary_line()}")
+    except Exception:
+        pass
 
     # ── Step 0: Brief ──────────────────────────────────────────────
     await _log(log, "LOG: [QNN STEP 0] Building Impasse/Enrich brief...")

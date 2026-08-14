@@ -109,8 +109,7 @@ def clean_and_parse_json(llm_output_string):
 
     try:
         return json.loads(repaired_string)
-    except json.JSONDecodeError as e:
-        print(f"Error decoding JSON even after repair: {e}")
+    except json.JSONDecodeError:
         return None
 
 

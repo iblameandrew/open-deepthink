@@ -23,9 +23,9 @@ from __future__ import annotations
 
 from typing import Any
 
-__version__ = "0.2.2"
-__release_name__ = "single-engine"
-__release_tag__ = "0.2.2"
+__version__ = "0.3.0"
+__release_name__ = "honest-engine"
+__release_tag__ = "0.3.0"
 
 # Lightweight imports — always safe, no LangChain graph spin-up
 from deepthink.state import BRAINSTORM_EXPERTS, GraphState
@@ -54,6 +54,13 @@ __all__ = [
     "format_attention_context",
     "AttentionEdge",
     "AttentionCandidate",
+    "clamp_qnn_topology",
+    "estimate_qnn_cost",
+    "estimate_qdad_cost",
+    "estimate_distillation_cost",
+    "run_structural_eval",
+    "CoderMockLLM",
+    "DistillationMockLLM",
     # Providers / config (lazy)
     "create_llm",
     "create_chat_model",
@@ -89,6 +96,13 @@ _LAZY: dict[str, tuple[str, str]] = {
     ),
     "AttentionEdge": ("deepthink.self_attention", "AttentionEdge"),
     "AttentionCandidate": ("deepthink.self_attention", "AttentionCandidate"),
+    "clamp_qnn_topology": ("deepthink.qnn", "clamp_qnn_topology"),
+    "estimate_qnn_cost": ("deepthink.cost", "estimate_qnn_cost"),
+    "estimate_qdad_cost": ("deepthink.cost", "estimate_qdad_cost"),
+    "estimate_distillation_cost": ("deepthink.cost", "estimate_distillation_cost"),
+    "run_structural_eval": ("deepthink.eval_structural", "run_structural_eval"),
+    "CoderMockLLM": ("deepthink.mocks", "CoderMockLLM"),
+    "DistillationMockLLM": ("deepthink.mocks", "DistillationMockLLM"),
     "create_llm": ("deepthink.providers", "create_llm"),
     "create_chat_model": ("deepthink.providers", "create_chat_model"),
     "get_settings": ("deepthink.config", "get_settings"),

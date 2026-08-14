@@ -20,8 +20,6 @@ from deepthink.utils import estimate_tokens, parse_llm_json
 # We import it here so the _compute_perplexity method can actually find the name.
 from deepthink.chains.perplexity_chain import PerplexityChain
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 

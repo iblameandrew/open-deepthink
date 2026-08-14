@@ -9,11 +9,22 @@ A **Qualitative Neural Network (QNN)** that runs layered forward passes, reflect
 
 Most agentic systems give you breadth through parallelism. open-deepthink gives you **depth through structured iteration and self-modification**.
 
+### What this is (and is not)
+
+This is a **structured multi-agent loop**: layered LLM calls, lexical retrieval of past cells, prompt rewrite between epochs, and JSON traces. Neural-net words (Mirror Descent, self-attention, diffusion) are a **design language**. They are not those algorithms. Output quality versus a single long prompt is **unevaluated**. See [`docs/DESIGN_NOTES.md`](./docs/DESIGN_NOTES.md) and [`docs/EVAL.md`](./docs/EVAL.md).
+
+**Start small.** Auto mode caps at 24 agents. Prefer `2×2×1` or `3×3×2`. Estimate before you spend:
+
+```bash
+deepthink estimate qnn --layers 2 --width 2 --epochs 1
+deepthink eval          # mock LLMs, no API key — structural checks only
+```
+
 ---
 
 ## 🎰 Qualitative Diffusion (QDAD) — New Technique
 
-**Diffusion, re-implemented at a purely qualitative scale.** Available as:
+**An N×N noun×verb grid: high-temp invent, critic rewrite, then one synthesizer.** Available as:
 
 1. **App Slot Machine Mode** in this app (full LangGraph engine + logs + matrix transparency)
 2. **Portable `/qdad` skill** for Grok Build and other agentic coders — no server required
@@ -37,9 +48,9 @@ Most agentic systems give you breadth through parallelism. open-deepthink gives 
 
 - Language is the computational medium.
 - Nouns and verbs act as orthogonal basis directions.
-- High temperature = controlled qualitative noise.
-- Critic agents = qualitative reverse diffusion / score matching.
-- The whole process turns a vague aesthetic prompt into a concrete, buildable app specification — the same way Midjourney turns a vague prompt into an image.
+- High temperature = a sampling knob on the invent step.
+- Critic agents rewrite the same cell (design-language: reverse diffusion / score matching).
+- The whole process turns a vague aesthetic prompt into a concrete, buildable app specification. Quality versus one long prompt is unevaluated.
 
 **Why a grid (not a flat feature list)?** Features sit on a forced tensor product of basis directions. Exploration is *systematic*. Critics cannot change the signature of a cell — they score-match *along* that noun×verb chart. Synthesis is a separate decode step, not “pick the best idea.”
 
@@ -61,7 +72,7 @@ Typical multi-agent setups (including many "16 expert" or "army of agents" brain
 
 You get diversity of perspective, but the agents themselves do not become meaningfully better at the *specific* problem over time. There is no topology, no persistent specialization, no mechanism that rewires *how* the system thinks, and almost never a reusable artifact of the reasoning process.
 
-open-deepthink treats agents like **neurons in a network** whose "weights" are rich natural-language personas, and whose learning rule is **Mirror Descent** (qualitative backpropagation).
+open-deepthink treats agents like **neurons in a network** whose "weights" are rich natural-language personas, and whose learning rule is **Mirror Descent** — an LLM rewriting those prompts (not gradient descent). See [`docs/DESIGN_NOTES.md`](./docs/DESIGN_NOTES.md).
 
 ---
 
@@ -71,7 +82,7 @@ A QNN is a directed, layered graph of LLM agents with three repeating phases per
 
 1. **Forward Pass** — Problem is decomposed across the topology. Layer 0 runs in parallel. Each subsequent layer receives context from the previous layer and builds deeper analysis. Information flows structurally, not just through a shared chat.
 
-2. **Qualitative Self-Attention (brainstorm)** — Within each epoch, neurons do **not** only see graph neighbors. Each agent runs a colony-style **self-attention** step over past / non-local neurons (earlier layers this epoch that are not the immediate previous layer, plus other agents’ memory from prior epochs). Pairwise qualitative scores (strength + distance) inject a sparse “attended value” block into the prompt — the analogue of \(\mathrm{softmax}(QK^\top/\sqrt{d})\,V\) without MatMul. See [colony / Qualitative Self-Attention](https://github.com/iblameandrew/colony) and `deepthink/self_attention.py`.
+2. **Qualitative Self-Attention (brainstorm)** — Within each epoch, neurons do **not** only see graph neighbors. Each agent scores a capped pool of past / non-local neurons by **lexical overlap** (persona tokens vs past text) and injects the top-k excerpts. No MatMul, no extra LLM call. Inspired by [colony](https://github.com/iblameandrew/colony). Implementation: `deepthink/self_attention.py`.
 
 3. **Reflection + Mirror Descent** — After synthesis, the system does not just "critique the answer." It:
    - Evaluates which agents struggled vs. succeeded on their specific sub-problems.
@@ -101,7 +112,7 @@ The most distinctive and high-leverage mode.
 
 **Primary output**: A structured JSON dataset of every (epoch, agent, archetype, question, answer) pair, plus a complete `topology_archive.json` containing the full evolutionary history (every system prompt mutation, every inheritance, every difficulty judgment).
 
-This is not generic chat logs. This is **developmental trace data** explicitly designed for training the next generation of reasoning models — models that can internalize patterns of collaboration, critique, specialization, and progressive deepening.
+This is not generic chat logs. It is **structured developmental trace data** (QA pairs + topology archive). The intent is that traces like these could help train later models. That use is **unevaluated**.
 
 ### 2. 🧠 Brainstorming Mode (Full QNN Expert Panel)
 
@@ -131,8 +142,8 @@ Feed-forward edges only connect a neuron to the **previous layer**. Self-attenti
 
 Logs: `LOG: [QNN ATTEND] agent_L_W self-attention → k non-local past neuron(s): …`
 
-- **Auto mode**: Complexity estimator recommends a small topology (skill-aligned score bands).
-- **Manual / Massive mode**: Any Layers × Width; spawn a genuine "army" when justified.
+- **Auto mode**: Complexity estimator recommends a small topology; hard cap **24 agents**.
+- **Manual mode**: You set L×W. CLI refuses runs estimated at >80 LLM calls unless `--yes` (or `--debug`).
 - Intermediate epochs produce compact **epoch maps**; the final epoch polishes the full report.
 - Rich markdown chat interface for the report and logs for each QNN step.
 
@@ -178,20 +189,20 @@ These artifacts are the real product. The final synthesized answer is a byproduc
 ## Why This Matters for Agentic Coding and Reasoning Research
 
 - **Test-time compute, done right and observably.** Many frontier systems hide their long reasoning inside a single model. open-deepthink makes the structure, specialization, and adaptation explicit and archivable.
-- **A credible path to better base models.** The highest-leverage use of current powerful models may be generating traces of *how* hard problems should be decomposed, attacked by specialized perspectives, critiqued, and progressively deepened. open-deepthink is purpose-built to produce that class of data at scale on consumer hardware.
-- **Reusable specialized reasoners.** An exported QNN that has spent 10–20 epochs evolving on a domain is qualitatively different from prompting a base model with a long system prompt. The specialization is *baked into the network structure and the evolved personas*.
-- **Local and long-horizon by design.** Runs for hours or days on a 32 GB laptop or a modest rig. No requirement for frontier API spend to get compounding returns.
+- **Traces, not proven training data.** Distillation writes QA pairs and topology archives. Whether those traces improve a base model is unevaluated.
+- **Reusable specialized reasoners.** An exported QNN stores evolved personas and structure. That is a different artifact from a single system prompt; we do not claim it is a better reasoner.
+- **Local and long-horizon by design.** Small topologies (2×2×1, 3×3×2) fit a laptop. Larger runs are an explicit, estimated cost.
 
 ---
 
 ## Technical Strengths
 
-- Built on **LangGraph** with real cyclic graphs, conditional routing (epoch gateway), parallel layer execution, and proper state management — not a pile of sequential chains.
-- 195 passing tests across 11 phases, including regression tests for every bug fixed in the 0.0.3 quality release.
-- Clean provider model: only OpenRouter (cloud) and LlamaCpp / llama.cpp server (local). Per-agent and per-synthesis model selection supported.
-- Robust JSON handling, token tracking, streaming logs, RAPTOR hierarchical indexing, and safe(ish) code execution.
-- Real export/import of full QNN state.
-- Massive scale supported when you ask for it (Manual/Massive mode will happily run 50×50+ if your budget allows).
+- Built on **LangGraph** with cyclic graphs, parallel layers, and shared library engines for the UI, CLI, and skills.
+- Phase test suite + control-flow tests (`python tests/run_all.py`) with mock LLMs — no API keys. Includes a free **structural eval** (`deepthink eval`).
+- Clean provider model: only OpenRouter (cloud) and LlamaCpp / llama.cpp server (local).
+- Robust JSON handling, token tracking, streaming logs, RAPTOR indexing, AST+subprocess sandbox, disk-backed sessions, and a pre-run **cost estimator**.
+- Real export/import of QNN state. One `GraphState` (library = web).
+- Manual mode can grow large if you pass `--yes`; auto mode caps at 24 agents. Estimate first.
 
 ---
 
@@ -255,6 +266,8 @@ asyncio.run(main())
 deepthink qnn  --prompt "Break this deadlock…" --verbose
 deepthink qdad --prompt "cozy night writing app" --n 3 --steps 2
 deepthink qnn  --prompt "…" --debug          # mock LLM, no API key
+deepthink estimate qnn --layers 2 --width 2 --epochs 1
+deepthink eval                               # structural checks, mock LLMs
 deepthink version
 ```
 
@@ -265,6 +278,7 @@ deepthink version
 | **Distillation** | `from deepthink import DistillationGraph` | 1×2×2×2×2×2×1 evolutionary topology → dataset + `topology_archive.json` |
 | **Self-attention** | `from deepthink import compute_self_attention` | Qualitative attention over non-local past neurons |
 | **Providers** | `from deepthink import create_llm` | OpenRouter or llama.cpp chat models |
+| **Cost / eval** | `estimate_qnn_cost`, `run_structural_eval` | Call-count estimate; mock structural eval (not a quality bench) |
 
 Package layout:
 
@@ -275,7 +289,13 @@ deepthink/
   qnn/                # brainstorm QNN pipeline
   qdad/               # qualitative diffusion
   distillation/       # evolutionary knowledge distillation
-  self_attention.py   # qualitative self-attention
+  self_attention.py   # lexical overlap “attention”
+  cost.py             # LLM-call / token estimates (no network)
+  eval_structural.py  # mock structural eval
+  mocks.py            # CoderMockLLM / DistillationMockLLM
+  sessions.py         # disk-backed session store
+  rag.py              # RAPTOR index (web UI)
+  runtime/            # log bus + leftover LangGraph nodes
   chains/             # all LangChain prompt factories
   config.py           # typed Settings (.env / env / TOML)
 ```
@@ -322,7 +342,7 @@ Never commit real API keys. The web UI may store keys in browser localStorage on
 |---------|----------------|
 | `pip install -e .` | **Algorithms library** only |
 | `pip install -e ".[web]"` | Library + FastAPI web UI |
-| `pip install -e ".[dev]"` | Library + web + ruff/mypy/httpx |
+| `pip install -e ".[dev]"` | Library + web + ruff/mypy/httpx/pytest |
 
 ### Tests (no API keys required)
 
@@ -339,7 +359,7 @@ MIT — see [LICENSE](./LICENSE).
 
 ## Hyperparameters & Hardware Reality
 
-- **Layers / Width**: Control depth vs. breadth of the network. 3–6 layers with 3–8 width is already deep on most problems. Massive mode exists for when you want to go further.
+- **Layers / Width**: Start at 2×2 or 3×3. Auto mode will not exceed 24 agents. Manual is opt-in and expensive.
 - **Epochs**: The number of full forward + reflection + reframing cycles. This is where the power law lives.
 - **Learning rate / Density / Prompt alignment**: Control how aggressively agents mutate and how strongly the original problem shapes their identities.
 - **Token budget** (Distillation): The real governor. Set it high if you want serious evolutionary runs.
@@ -347,7 +367,7 @@ MIT — see [LICENSE](./LICENSE).
 **Practical guidance**:
 - 32 GB RAM CPU laptop: 2×2 to 4×4 topologies, 2–4 epochs.
 - 64 GB + decent GPU: 6×6 to 10×10, more epochs, or serious Distillation runs.
-- The system is explicitly designed so that **more time and more epochs beats needing a bigger base model**.
+- Design bet (unevaluated): more time and more epochs can beat needing a bigger base model. Measure cost with `deepthink estimate` first.
 
 ---
 
@@ -381,7 +401,8 @@ Runs the full QDAD procedure — prefer **executing the engine**, not only simul
 
 ```bash
 export OPEN_DEEPTHINK_ROOT=/path/to/open-deepthink
-python skills/qdad/run_qdad.py --prompt "cozy night writing app…" --n 3 --denoising-steps 2
+# Skill hosts materialize skills/qdad/run_template.py → .skill-runs/run_qdad.py
+python skills/qdad/run_template.py --prompt "cozy night writing app…" --n 3 --denoising-steps 2
 ```
 
 Library: `await run_qdad_pipeline(llm, params={...}, user_prompt=...)` — see [`skills/qdad/CODE_REFERENCE.md`](./skills/qdad/CODE_REFERENCE.md).
@@ -390,7 +411,7 @@ Library: `await run_qdad_pipeline(llm, params={...}, user_prompt=...)` — see [
 |----------|----------|
 | Skill body | [`skills/qdad/SKILL.md`](./skills/qdad/SKILL.md) |
 | Code contract | [`skills/qdad/CODE_REFERENCE.md`](./skills/qdad/CODE_REFERENCE.md) |
-| CLI | [`skills/qdad/run_qdad.py`](./skills/qdad/run_qdad.py) |
+| CLI | [`skills/qdad/run_template.py`](./skills/qdad/run_template.py) |
 | Engine | `deepthink.qdad.run_qdad_pipeline` |
 | Release zip | `qdad-skill-<version>.zip` on [Releases](https://github.com/iblameandrew/open-deepthink/releases) |
 
@@ -402,7 +423,7 @@ Library: `await run_qdad_pipeline(llm, params={...}, user_prompt=...)` — see [
 ```
 
 ```bash
-python skills/qnn/run_qnn.py --prompt "explore this deadlock" --qnn-mode auto
+python skills/qnn/run_template.py --prompt "explore this deadlock" --qnn-mode auto
 ```
 
 Library: `await run_qnn_pipeline(llm, prompt, params={...})` — see [`skills/qnn/CODE_REFERENCE.md`](./skills/qnn/CODE_REFERENCE.md).
@@ -411,17 +432,17 @@ Library: `await run_qnn_pipeline(llm, prompt, params={...})` — see [`skills/qn
 |----------|----------|
 | Skill body | [`skills/qnn/SKILL.md`](./skills/qnn/SKILL.md) |
 | Code contract | [`skills/qnn/CODE_REFERENCE.md`](./skills/qnn/CODE_REFERENCE.md) |
-| CLI | [`skills/qnn/run_qnn.py`](./skills/qnn/run_qnn.py) |
+| CLI | [`skills/qnn/run_template.py`](./skills/qnn/run_template.py) |
 | Engine | `deepthink.qnn.run_qnn_pipeline` |
 | Release zip | `qnn-skill-<version>.zip` on [Releases](https://github.com/iblameandrew/open-deepthink/releases) |
 
 ### Install both (Grok Build user skills)
 
 ```bash
-# Linux / macOS — copy full skill folders (SKILL + CODE_REFERENCE + run_*.py)
+# Linux / macOS — copy full skill folders (SKILL + CODE_REFERENCE + run_template.py)
 mkdir -p ~/.grok/skills/qnn ~/.grok/skills/qdad
-cp skills/qnn/{SKILL.md,CODE_REFERENCE.md,run_qnn.py,INSTALL.md} ~/.grok/skills/qnn/
-cp skills/qdad/{SKILL.md,CODE_REFERENCE.md,run_qdad.py,INSTALL.md} ~/.grok/skills/qdad/
+cp skills/qnn/{SKILL.md,CODE_REFERENCE.md,run_template.py,INSTALL.md} ~/.grok/skills/qnn/
+cp skills/qdad/{SKILL.md,CODE_REFERENCE.md,run_template.py,INSTALL.md} ~/.grok/skills/qdad/
 export OPEN_DEEPTHINK_ROOT="$(pwd)"   # so runners import deepthink.*
 
 # Or from release assets
@@ -438,7 +459,7 @@ The full open-deepthink server remains the place for long evolutionary runs, App
 
 ## Contributing & Benchmarking
 
-This is research software with a stable core (195/195 tests, all core loops functional). The most valuable contributions right now are:
+This is research software. Quality versus single-shot prompting is unevaluated (`docs/EVAL.md`). The most valuable contributions right now are:
 
 - Deep, long runs on interesting problems (especially with local models) and sharing the exported QNNs + distillation datasets.
 - Bug reports that include the graph trace / logs.
@@ -462,4 +483,4 @@ Not more agents. Better *becoming* agents.
 
 ---
 
-*Version 0.1.7 — See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the full history.*
+*Version 0.3.0 — See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the full history.*

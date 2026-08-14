@@ -72,9 +72,9 @@ def ascii_grid_preview(nouns: List[str], verbs: List[str]) -> str:
 
 
 def clamp_params(
-    n: Any = 4,
+    n: Any = 3,
     noise_temp: Any = 1.3,
-    denoising_steps: Any = 3,
+    denoising_steps: Any = 2,
     nv_temp: Any = 0.6,
 ) -> tuple:
     n = max(2, min(8, int(n)))

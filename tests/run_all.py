@@ -38,6 +38,7 @@ PHASE_FILES = [
     "phase_self_attention.py",
     "phase_config.py",
     "phase_package_api.py",
+    "phase_honesty.py",
 ]
 
 
@@ -113,6 +114,29 @@ def main() -> int:
             for line in out.splitlines():
                 if "FAIL" in line:
                     print(f"    {line}")
+
+    extra = TESTS / "test_control_flow.py"
+    if extra.is_file():
+        print("======== test_control_flow.py ========")
+        proc = subprocess.run(
+            [sys.executable, str(extra)],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        out = (proc.stdout or "") + (proc.stderr or "")
+        print(out[-2000:] if len(out) > 2000 else out)
+        if proc.returncode == 0:
+            grand_ok += 1
+            grand_total += 1
+            print("  → 1/1 OK\n")
+        else:
+            grand_ok += 0
+            grand_total += 1
+            failed_phases.append("test_control_flow.py")
+            print("  → 0/1 FAIL\n")
 
     print("=" * 50)
     print(f"TOTAL: {grand_ok}/{grand_total} OK")

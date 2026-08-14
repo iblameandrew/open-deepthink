@@ -42,3 +42,9 @@ dist/
 
 # LangChain / RAPTOR caches
 .ruff_cache/
+
+# Local agent / editor scratch (not part of the package)
+.grok/
+.opencode/
+.skill-runs/
+terminals/
