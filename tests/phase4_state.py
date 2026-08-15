@@ -1,10 +1,10 @@
 """Phase 4: state.py and other structural types."""
 
-import sys, traceback
-
-from pathlib import Path
-ROOT = Path(__file__).resolve().parent.parent
 import sys
+import traceback
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 results = []
 

@@ -1,6 +1,6 @@
 """QDAD graph state — the qualitative diffusion state tensor."""
 
-from typing import TypedDict, List, Dict, Any, Optional
+from typing import Any, TypedDict
 
 
 class QDADState(TypedDict, total=False):
@@ -20,25 +20,25 @@ class QDADState(TypedDict, total=False):
     denoise_step: int  # current step (1-indexed during denoise loop)
 
     # ── Phase 0: qualitative basis ──
-    nouns: List[str]  # row basis, length N
-    verbs: List[str]  # column basis, length N
+    nouns: list[str]  # row basis, length N
+    verbs: list[str]  # column basis, length N
 
     # ── Phase 1: agent grid metadata ──
     # list of {i, j, noun, verb, agent_id}
-    grid: List[Dict[str, Any]]
+    grid: list[dict[str, Any]]
 
     # ── Feature matrices (language as the latent) ──
-    features: List[List[str]]  # current N×N matrix
-    noisy_features: List[List[str]]  # after forward noise
-    clean_features: List[List[str]]  # after final denoise step
+    features: list[list[str]]  # current N×N matrix
+    noisy_features: list[list[str]]  # after forward noise
+    clean_features: list[list[str]]  # after final denoise step
 
     # Intermediate snapshots for transparency / inspection
     # keys: "noisy", "step_1", ..., "clean"
-    matrices: Dict[str, Any]
+    matrices: dict[str, Any]
 
     # ── Phase 4 output ──
     app_build_prompt: str
-    final_solution: Optional[Dict[str, Any]]
+    final_solution: dict[str, Any] | None
 
     # Runtime logs collected for optional inspection
-    phase_log: List[str]
+    phase_log: list[str]

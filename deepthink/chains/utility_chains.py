@@ -3,8 +3,8 @@ Utility chain factories.
 Memory, perplexity, module documentation, and code detection chains.
 """
 
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 
 
 def get_memory_summarizer_chain(llm):
@@ -44,9 +44,9 @@ def get_module_card_chain(llm):
     prompt = ChatPromptTemplate.from_template("""
 
 <title>
-You are a software documentation specialist. 
+You are a software documentation specialist.
 </title>
-                                              
+
 Your task is to analyze a given Python code module and create a concise "module card" summarizing its functionality.
 
 The module card should contain:
@@ -80,7 +80,7 @@ Text:
 def get_request_is_code_chain(llm):
     """Determines if a request is asking for code generation."""
     prompt = ChatPromptTemplate.from_template("""
-Analyze the following user request. Is this primarily a request for code or software development? 
+Analyze the following user request. Is this primarily a request for code or software development?
 Consider: code generation, programming, building applications, scripts, algorithms as CODE requests.
 Consider: essays, analysis, explanations, research, planning as NON-CODE requests.
 

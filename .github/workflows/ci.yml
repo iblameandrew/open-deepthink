@@ -34,25 +34,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Ruff check (library surface)
-        run: >
-          ruff check
-          deepthink/config.py deepthink/cli.py deepthink/__main__.py
-          deepthink/providers.py deepthink/api.py deepthink/__init__.py
-          deepthink/cost.py deepthink/sessions.py deepthink/eval_structural.py
-          deepthink/runtime/bus.py deepthink/distillation
-          tests/run_all.py tests/phase_config.py tests/phase_package_api.py
-          tests/phase_honesty.py tests/test_control_flow.py tests/_paths.py
+      - name: Ruff check
+        run: ruff check deepthink tests app.py scripts skills
 
       - name: Ruff format (check only)
-        run: >
-          ruff format --check
-          deepthink/config.py deepthink/cli.py deepthink/__main__.py
-          deepthink/providers.py deepthink/api.py deepthink/__init__.py
-          deepthink/cost.py deepthink/sessions.py deepthink/eval_structural.py
-          deepthink/runtime/bus.py deepthink/distillation
-          tests/_paths.py tests/run_all.py tests/phase_config.py
-          tests/phase_package_api.py tests/phase_honesty.py tests/test_control_flow.py
+        run: ruff format --check deepthink tests app.py scripts skills
 
       - name: Mypy (typed surface)
         run: >

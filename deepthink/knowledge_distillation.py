@@ -1,24 +1,23 @@
 import asyncio
-import copy
 import json
 import logging
 import os
-import time
-from typing import List, Dict, Any, Optional
-from langchain_core.messages import SystemMessage, HumanMessage
+
+from langchain_core.messages import HumanMessage, SystemMessage
+
 from deepthink.chains import (
-    get_task_master_chain,
-    get_seed_creator_chain,
+    DISTILLATION_ARCHETYPES,
+    get_followup_question_chain,
     get_mirror_descent_chain,
     get_mixing_chain,
-    get_followup_question_chain,
-    DISTILLATION_ARCHETYPES,
+    get_seed_creator_chain,
+    get_task_master_chain,
 )
-from deepthink.utils import estimate_tokens, parse_llm_json
 
 # PerplexityChain lives in its own module (used only by distillation mode for LLM-based quality scoring).
 # We import it here so the _compute_perplexity method can actually find the name.
 from deepthink.chains.perplexity_chain import PerplexityChain
+from deepthink.utils import estimate_tokens, parse_llm_json
 
 logger = logging.getLogger(__name__)
 
@@ -31,19 +30,19 @@ class DistillationAgent:
         agent_id: str,
         archetype_id: int,
         system_prompt: str,
-        attributes: List[str],
-        skills: List[str] = None,
+        attributes: list[str],
+        skills: list[str] = None,
     ):
         self.id = agent_id
         self.archetype_id = archetype_id
         self.system_prompt = system_prompt
         self.attributes = attributes
         self.skills = skills or []
-        self.history: List[Dict[str, str]] = []  # [{question, answer}, ...]
+        self.history: list[dict[str, str]] = []  # [{question, answer}, ...]
         self.current_question = ""
-        self.difficulty_history: List[str] = []  # "Easy" or "Hard"
+        self.difficulty_history: list[str] = []  # "Easy" or "Hard"
         self.context_memory = ""  # Per-agent inherited context, max 100k tokens
-        self.inherited_from: Optional[str] = None  # Parent agent id if this is a child
+        self.inherited_from: str | None = None  # Parent agent id if this is a child
         self.solved_parent_question = False  # Track if child solved parent's hard question
 
     def to_dict(self) -> dict:
@@ -89,7 +88,7 @@ class DistillationGraph:
     def __init__(
         self,
         llm,
-        topics: List[str],
+        topics: list[str],
         anchor_question: str,
         token_budget: int = 1_000_000,
         debug_mode: bool = False,
@@ -109,9 +108,9 @@ class DistillationGraph:
 
         self.epochs_run = 0
         self.topology_structure = [1, 2, 2, 2, 2, 2, 1]  # 1x2x2x2x2x2x1
-        self.layers: List[List[DistillationAgent]] = []
-        self.distilled_data: List[dict] = []  # QA pairs — the main product
-        self.topology_archive: List[dict] = []  # Snapshot per epoch
+        self.layers: list[list[DistillationAgent]] = []
+        self.distilled_data: list[dict] = []  # QA pairs — the main product
+        self.topology_archive: list[dict] = []  # Snapshot per epoch
         self.log_queue = log_queue if log_queue is not None else asyncio.Queue()
         self.final_answer = ""
         self.last_perplexity = 0.0
@@ -177,7 +176,7 @@ class DistillationGraph:
             return text[-self.CONTEXT_MEMORY_MAX_CHARS :]
         return text
 
-    def _flat_agents(self) -> List[DistillationAgent]:
+    def _flat_agents(self) -> list[DistillationAgent]:
         return [a for layer in self.layers for a in layer]
 
     def _build_current_grid_description(self) -> str:
@@ -322,7 +321,7 @@ class DistillationGraph:
     # STEP 1: QUESTION ASSIGNMENT
     # ------------------------------------------------------------------
 
-    async def _step_assign_questions(self, flat_agents: List[DistillationAgent]):
+    async def _step_assign_questions(self, flat_agents: list[DistillationAgent]):
         """
         Epoch 1: Task Master breaks anchor into 12 sub-questions.
         Epoch 2+: Questions were already assigned at end of previous epoch.
@@ -347,7 +346,7 @@ class DistillationGraph:
             name = DISTILLATION_ARCHETYPES.get(agent.archetype_id, {}).get("name", "Mixed")
             await self.log(f"  Agent {agent.id} ({name}): {agent.current_question[:60]}...")
 
-    async def _invoke_task_master(self) -> List[str]:
+    async def _invoke_task_master(self) -> list[str]:
         # debug_mode check removed to allow MockLLM to run
 
         chain = get_task_master_chain(self.llm)
@@ -472,7 +471,7 @@ Be thorough and analytical.
     # STEP 3: MIRROR DESCENT
     # ------------------------------------------------------------------
 
-    async def _step_mirror_descent(self, flat_agents: List[DistillationAgent]):
+    async def _step_mirror_descent(self, flat_agents: list[DistillationAgent]):
         """
         Evaluate each agent's performance. If Hard, find the best match from
         the CURRENT grid (not static archetypes) and spawn a child.
@@ -533,7 +532,7 @@ Be thorough and analytical.
         return parse_llm_json(result_json)
 
     async def _handle_hard_agent(
-        self, agent: DistillationAgent, eval_result: dict, flat_agents: List[DistillationAgent]
+        self, agent: DistillationAgent, eval_result: dict, flat_agents: list[DistillationAgent]
     ):
         """Spawn a child from the struggling agent + the best-match helper."""
         helper_agent_id = eval_result.get("best_match_agent_id")
@@ -603,7 +602,7 @@ Be thorough and analytical.
     # STEP 4: SYNTHESIZE FINAL ANSWER
     # ------------------------------------------------------------------
 
-    async def _step_synthesize_final_answer(self, flat_agents: List[DistillationAgent]):
+    async def _step_synthesize_final_answer(self, flat_agents: list[DistillationAgent]):
         """
         Combine all 12 agents' latest answers into a coherent final answer.
         This is NOT a synthesis node (spec says no synthesis node) — it's a
@@ -627,7 +626,7 @@ Be thorough and analytical.
     # STEP 5: SEED CREATOR + FOLLOWUP QUESTIONS
     # ------------------------------------------------------------------
 
-    async def _step_seed_and_followup(self, flat_agents: List[DistillationAgent]):
+    async def _step_seed_and_followup(self, flat_agents: list[DistillationAgent]):
         """
         Seed Creator: generate 12 ontologically close new topics.
         Followup: generate new questions for agents that had it "Easy".
@@ -665,7 +664,7 @@ Be thorough and analytical.
                     agent.current_question = f"Deepen your analysis of: {new_topics[i % len(new_topics)] if new_topics else self.anchor_question}"
             await self.log(f"  Assigned {len(agents_needing_questions)} new questions.")
 
-    async def _invoke_seed_creator(self) -> List[str]:
+    async def _invoke_seed_creator(self) -> list[str]:
         chain = get_seed_creator_chain(self.llm)
         truncated_answer = self.final_answer[:4000]
         input_data = {
@@ -682,7 +681,7 @@ Be thorough and analytical.
             await self.log(f"DISTILLATION_LOG: ❌ Seed Creator failed: {e}")
             return self.topics
 
-    async def _invoke_followup(self, count: int) -> List[str]:
+    async def _invoke_followup(self, count: int) -> list[str]:
         # debug_mode check removed to use MockLLM
 
         chain = get_followup_question_chain(self.llm)

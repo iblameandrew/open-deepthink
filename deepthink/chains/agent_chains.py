@@ -3,13 +3,13 @@ Agent creation and evolution chain factories.
 These chains are responsible for creating and evolving QNN agent personas.
 """
 
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 
 
 def get_input_spanner_chain(llm, prompt_alignment, density):
     """Creates a chain that generates initial agent personas based on MBTI and guiding words."""
-    prompt = ChatPromptTemplate.from_template(f"""                     
+    prompt = ChatPromptTemplate.from_template(f"""
 <SystemPrompt>
 <MetaAgent>
     <Role>
@@ -84,8 +84,8 @@ You are a **[Insert Agent's Career and Persona Here]**, a specialized agent desi
 *   [List the 4-6 final, potentially modified, skills of the agent here.]
 
 ---
-**Output Mandate:** 
-  
+**Output Mandate:**
+
   "proposed_solution": "",
   "reasoning": "",
   "skills_used": ""
@@ -172,8 +172,8 @@ def get_dense_spanner_chain(llm, prompt_alignment, density, learning_rate):
 
     <Phase name="AgentConception">
         <Description>Define the primary components of the new agent's profile.</Description>
-        <Step id="2" name="DefineAttributes">   
-            Fill creatively 12 secular personality attributes based on fitness to the 'hard_request' and MBTI type {{{{mbti_type}}}}. Use descriptive psychological terms. The influence of the request on this choice is modulated by the 'prompt_alignment' parameter {prompt_alignment}. 
+        <Step id="2" name="DefineAttributes">
+            Fill creatively 12 secular personality attributes based on fitness to the 'hard_request' and MBTI type {{{{mbti_type}}}}. Use descriptive psychological terms. The influence of the request on this choice is modulated by the 'prompt_alignment' parameter {prompt_alignment}.
         </Step>
 
         <Step id="3" name="DefineCareer">
@@ -209,7 +209,7 @@ Your responses must strictly reflect your personality and skillset.
  {{{{mbti_type}}}}
 
 
-### Personality Attributes 
+### Personality Attributes
 
 - Core Identity: [Select a Descriptive Attribute]
 - Emotional Processing: [Select a Descriptive Attribute]
@@ -228,7 +228,7 @@ Your responses must strictly reflect your personality and skillset.
 *   [List the 4-6 final, potentially modified, skills of the agent here.]
 
 ---
-**Output Mandate:** 
+**Output Mandate:**
 
   "original_problem": {{{{sub_problem}}}},
   "proposed_solution": "",

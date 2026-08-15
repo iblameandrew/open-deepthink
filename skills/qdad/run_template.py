@@ -3,6 +3,7 @@
 QDAD / App Slot Machine runner — materialized on-the-fly by the /qdad skill.
 Discovers deepthink from the workspace tree; runs qualitative diffusion.
 """
+
 from __future__ import annotations
 
 import argparse

@@ -18,6 +18,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Use UTF-8 on stdout/stderr regardless of locale (fixes UnicodeEncodeError
+# for the '→' markers on Windows cp1252 consoles).
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 ROOT = Path(__file__).resolve().parent.parent
 TESTS = ROOT / "tests"
 

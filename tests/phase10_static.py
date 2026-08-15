@@ -1,11 +1,25 @@
 """Phase 10: Static analysis, security, README, frontend, packaging."""
 
-import sys, os, ast, re, json, importlib.util, traceback
-
-from pathlib import Path
-ROOT = Path(__file__).resolve().parent.parent
+import ast
+import importlib.util
+import json
+import os
+import re
 import sys
+import traceback
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+
 sys.path.insert(0, str(ROOT))
+
+# Use UTF-8 on stdout/stderr regardless of locale (fixes UnicodeEncodeError
+# for the '⊆'/'⊇' markers on Windows cp1252 consoles).
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
 
 results = []
 
@@ -26,12 +40,7 @@ def t1():
 
     for root, _, files in os.walk(str(ROOT)):
         # Skip venv
-        if (
-            "venv" in root
-            or ".git" in root
-            or "__pycache__" in root
-            or ".ruff_cache" in root
-        ):
+        if "venv" in root or ".git" in root or "__pycache__" in root or ".ruff_cache" in root:
             continue
         for f in files:
             if f.endswith(".py"):
@@ -58,9 +67,7 @@ chk("app.py imports without error", t2)
 
 # 3) README mentions all expected features
 def t3():
-    with open(
-        str(ROOT.joinpath('README.md')), "r", encoding="utf-8"
-    ) as f:
+    with open(str(ROOT.joinpath("README.md")), encoding="utf-8") as f:
         text = f.read()
     required = [
         "Brainstorming",
@@ -80,9 +87,7 @@ chk("README documents all major features", t3)
 
 # 4) requirements.txt has all needed deps
 def t4():
-    with open(
-        str(ROOT.joinpath('requirements.txt')), "r", encoding="utf-8"
-    ) as f:
+    with open(str(ROOT.joinpath("requirements.txt")), encoding="utf-8") as f:
         text = f.read()
     required = [
         "fastapi",
@@ -113,9 +118,7 @@ chk("requirements.txt has all required deps", t4)
 
 # 5) launch.bat is well-formed
 def t5():
-    with open(
-        str(ROOT.joinpath('launch.bat')), "r", encoding="utf-8"
-    ) as f:
+    with open(str(ROOT.joinpath("launch.bat")), encoding="utf-8") as f:
         text = f.read()
     assert "pip install" in text
     assert "python app.py" in text
@@ -126,13 +129,16 @@ chk("launch.bat has install + run commands", t5)
 
 # 6) index.html has required structure
 def t6():
-    with open(
-        str(ROOT.joinpath('index.html')), "r", encoding="utf-8"
-    ) as f:
+    with open(str(ROOT.joinpath("index.html")), encoding="utf-8") as f:
         text = f.read()
     # Should have a title and key UI elements
     assert "<title>" in text
-    assert "open-deepthink" in text or "local-deepthink" in text or "NOA" in text or "army" in text.lower()
+    assert (
+        "open-deepthink" in text
+        or "local-deepthink" in text
+        or "NOA" in text
+        or "army" in text.lower()
+    )
 
 
 chk("index.html has expected structure", t6)
@@ -140,9 +146,7 @@ chk("index.html has expected structure", t6)
 
 # 7) js/components/node-chat.js exists
 def t7():
-    assert os.path.exists(
-        str(ROOT.joinpath('js', 'components', 'node-chat.js'))
-    )
+    assert os.path.exists(str(ROOT.joinpath("js", "components", "node-chat.js")))
 
 
 chk("js/components/node-chat.js exists", t7)
@@ -199,9 +203,7 @@ chk("app.GraphState includes brainstorm fields from deepthink.state.GraphState",
 
 # 10) Static check: app.py has no obvious syntax issues that would only show at runtime
 def t10():
-    with open(
-        str(ROOT.joinpath('app.py')), "r", encoding="utf-8"
-    ) as f:
+    with open(str(ROOT.joinpath("app.py")), encoding="utf-8") as f:
         text = f.read()
     # Check for `import X` followed by no usage
     # Look for any "TODO", "FIXME", "XXX" markers
@@ -213,8 +215,8 @@ def t10():
                 issues.append((i, marker, line.strip()))
     if issues:
         print(f"  INFO: {len(issues)} TODO/FIXME markers in app.py:")
-        for i, m, l in issues[:5]:
-            print(f"    L{i}: [{m}] {l[:80]}")
+        for i, m, preview in issues[:5]:
+            print(f"    L{i}: [{m}] {preview[:80]}")
 
 
 chk("app.py TODO/FIXME audit (informational)", t10)
@@ -222,9 +224,7 @@ chk("app.py TODO/FIXME audit (informational)", t10)
 
 # 11) Check the unused import: in agent_chains.py and brainstorm_chains.py
 def t11():
-    with open(
-        str(ROOT.joinpath('app.py')), "r", encoding="utf-8"
-    ) as f:
+    with open(str(ROOT.joinpath("app.py")), encoding="utf-8") as f:
         text = f.read()
     # import re
     # Check that 're' is used
@@ -267,18 +267,14 @@ def t13():
     for path in candidates:
         text = path.read_text(encoding="utf-8")
         lines = [
-            l
-            for l in text.splitlines()
-            if "=" in l and not l.strip().startswith("#")
+            line for line in text.splitlines() if "=" in line and not line.strip().startswith("#")
         ]
         for line in lines:
             val = line.split("=", 1)[1].strip().strip("\"'")
-            if ("sk-or-" in val or (val.startswith("sk-") and len(val) > 20)):
+            if "sk-or-" in val or (val.startswith("sk-") and len(val) > 20):
                 # Fail hard in CI if a real-looking key is committed
                 if path.name == ".env.example":
-                    raise AssertionError(
-                        f".env.example must not contain secrets: {line}"
-                    )
+                    raise AssertionError(f".env.example must not contain secrets: {line}")
                 print(f"  WARN: {path.name} may contain real API key: {line}")
 
 
@@ -355,15 +351,14 @@ chk("build_and_run_graph has cot_trace_depth consistency (informational)", t17)
 
 # 18) Verify error handling in upload_documents
 def t18():
-    from fastapi.testclient import TestClient
     import importlib
+
+    from fastapi.testclient import TestClient
 
     app_mod = importlib.import_module("app")
     client = TestClient(app_mod.app)
     # Send a non-PDF
-    r = client.post(
-        "/upload_documents", files=[("files", ("x.txt", b"abc", "text/plain"))]
-    )
+    r = client.post("/upload_documents", files=[("files", ("x.txt", b"abc", "text/plain"))])
     assert r.status_code == 200
     body = r.json()
     # Non-PDF should be skipped without error
@@ -424,8 +419,7 @@ def t19():
     app_fields = set(AppGS.__annotations__.keys())
     lib_fields = set(LibGS.__annotations__.keys())
     assert lib_fields.issubset(app_fields), (
-        f"app.GraphState missing fields from deepthink.state.GraphState: "
-        f"{lib_fields - app_fields}"
+        f"app.GraphState missing fields from deepthink.state.GraphState: {lib_fields - app_fields}"
     )
 
 
@@ -437,9 +431,7 @@ chk(
 
 # 20) Check for any `print` statements that should be using log_stream
 def t20():
-    with open(
-        str(ROOT.joinpath('app.py')), "r", encoding="utf-8"
-    ) as f:
+    with open(str(ROOT.joinpath("app.py")), encoding="utf-8") as f:
         text = f.read()
     # Count print() calls outside MockLLM classes
     # In production, prints leak to stdout - should be using log_stream
@@ -453,7 +445,7 @@ chk("app.py uses log_stream (informational)", t20)
 # 21) Make sure tests directory is not in the wheel/install
 def t21():
     # No actual setup.py to check, just verify tests don't have side effects
-    for f in os.listdir(str(ROOT.joinpath('tests'))):
+    for f in os.listdir(str(ROOT.joinpath("tests"))):
         if f.endswith(".py"):
             # Just verify it imports without side effects (we did this already)
             pass
@@ -481,16 +473,21 @@ chk("git is functional in repo", t22)
 
 # 23) Memory calculator and unlimited QNN dimensions in index.html
 def t23():
-    with open(
-        str(ROOT.joinpath('index.html')), "r", encoding="utf-8"
-    ) as f:
+    with open(str(ROOT.joinpath("index.html")), encoding="utf-8") as f:
         html = f.read()
     assert "memory-calculator.js" in html
     assert "brainstorm-mem-calc" in html
     assert "qdad-mem-calc" in html
     assert "qdad_grid_size" in html
-    assert 'id="manual_layers"' in html and 'max="10000"' not in html.split('id="manual_layers"')[1][:200]
-    assert 'id="qdad_grid_size"' in html and "qdad_temperature_scale" in html and "qdad_denoising_steps" in html
+    assert (
+        'id="manual_layers"' in html
+        and 'max="10000"' not in html.split('id="manual_layers"')[1][:200]
+    )
+    assert (
+        'id="qdad_grid_size"' in html
+        and "qdad_temperature_scale" in html
+        and "qdad_denoising_steps" in html
+    )
 
 
 chk("index.html has memory calculator and QDAD controls", t23)
@@ -512,9 +509,7 @@ chk("build_and_run_graph supports app_slot_machine / QDAD path", t24)
 
 # 25) CHANGELOG/RELEASE file - is there one?
 def t25():
-    with open(
-        str(ROOT.joinpath('RELEASE_NOTES.md')), "r", encoding="utf-8"
-    ) as f:
+    with open(str(ROOT.joinpath("RELEASE_NOTES.md")), encoding="utf-8") as f:
         text = f.read()
     assert "0.1.2" in text
     assert "Memory Estimator" in text or "memory estimator" in text.lower()

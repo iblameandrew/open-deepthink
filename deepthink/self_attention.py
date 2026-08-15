@@ -18,8 +18,9 @@ Colony reference: smenos/colony/backend/app/agents/attention.py
 from __future__ import annotations
 
 import re
-from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from collections.abc import Iterable, Sequence
+from dataclasses import asdict, dataclass
+from typing import Any
 
 # Cap scoring work (colony uses ≤96 pairs / tick)
 MAX_ATTENTION_CANDIDATES = 48
@@ -44,33 +45,33 @@ class AttentionEdge:
     kind: str  # conceptual affinity bucket
     rationale: str
     source: str  # "memory" | "agent_outputs"
-    epoch_hint: Optional[int] = None
+    epoch_hint: int | None = None
     excerpt: str = ""
     score: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 @dataclass
 class AttentionCandidate:
     agent_id: str
-    output: Dict[str, Any]
+    output: dict[str, Any]
     source: str
-    epoch_hint: Optional[int] = None
+    epoch_hint: int | None = None
     entry_index: int = -1
 
 
-def _tokenize(text: str) -> Set[str]:
+def _tokenize(text: str) -> set[str]:
     if not text:
         return set()
     return {t.lower() for t in TOKEN_RE.findall(str(text))}
 
 
-def _persona_tokens(persona: Optional[dict]) -> Set[str]:
+def _persona_tokens(persona: dict | None) -> set[str]:
     if not persona:
         return set()
-    bits: List[str] = []
+    bits: list[str] = []
     for key in ("name", "specialty", "guiding_words", "system_prompt"):
         val = persona.get(key)
         if isinstance(val, str):
@@ -86,7 +87,7 @@ def _persona_tokens(persona: Optional[dict]) -> Set[str]:
     return _tokenize(" ".join(bits))
 
 
-def _output_tokens(output: Dict[str, Any]) -> Set[str]:
+def _output_tokens(output: dict[str, Any]) -> set[str]:
     parts = [
         str(output.get("original_problem") or ""),
         str(output.get("proposed_solution") or ""),
@@ -100,7 +101,7 @@ def _output_tokens(output: Dict[str, Any]) -> Set[str]:
     return _tokenize(" ".join(parts))
 
 
-def _excerpt(output: Dict[str, Any], limit: int = 280) -> str:
+def _excerpt(output: dict[str, Any], limit: int = 280) -> str:
     text = (
         str(output.get("proposed_solution") or "")
         or str(output.get("reasoning") or "")
@@ -113,7 +114,7 @@ def _excerpt(output: Dict[str, Any], limit: int = 280) -> str:
     return text
 
 
-def _normalize_output(raw: Any) -> Optional[Dict[str, Any]]:
+def _normalize_output(raw: Any) -> dict[str, Any] | None:
     if raw is None:
         return None
     if isinstance(raw, list):
@@ -132,11 +133,11 @@ def _normalize_output(raw: Any) -> Optional[Dict[str, Any]]:
     return raw
 
 
-def graph_neighbor_ids(node_id: str, all_layers_prompts: Sequence[Sequence[Any]]) -> Set[str]:
+def graph_neighbor_ids(node_id: str, all_layers_prompts: Sequence[Sequence[Any]]) -> set[str]:
     """Immediate feed-forward neighbors: entire previous layer (graph edges)."""
     try:
-        layer_index = int(node_id.split("_")[1])
-        agent_index = int(node_id.split("_")[2])
+        _kind, layer_s, _agent_s = node_id.split("_")[:3]
+        layer_index = int(layer_s)
     except (IndexError, ValueError):
         return set()
 
@@ -151,9 +152,9 @@ def graph_neighbor_ids(node_id: str, all_layers_prompts: Sequence[Sequence[Any]]
 def collect_attention_candidates(
     state: dict,
     node_id: str,
-    neighbor_ids: Optional[Set[str]] = None,
+    neighbor_ids: set[str] | None = None,
     max_candidates: int = MAX_ATTENTION_CANDIDATES,
-) -> List[AttentionCandidate]:
+) -> list[AttentionCandidate]:
     """
     Build a pool of past / non-local neurons the query agent may attend to.
 
@@ -165,11 +166,11 @@ def collect_attention_candidates(
          (already in the feed-forward upstream block).
     """
     neighbor_ids = neighbor_ids if neighbor_ids is not None else set()
-    candidates: List[AttentionCandidate] = []
-    seen: Set[Tuple[str, str, int]] = set()
+    candidates: list[AttentionCandidate] = []
+    seen: set[tuple[str, str, int]] = set()
 
     def _add(
-        agent_id: str, output: Any, source: str, epoch_hint: Optional[int], entry_index: int = -1
+        agent_id: str, output: Any, source: str, epoch_hint: int | None, entry_index: int = -1
     ):
         if agent_id == node_id:
             return
@@ -236,7 +237,7 @@ def collect_attention_candidates(
 
 def score_pair_heuristic(
     query_id: str,
-    query_persona: Optional[dict],
+    query_persona: dict | None,
     candidate: AttentionCandidate,
 ) -> AttentionEdge:
     """
@@ -307,14 +308,14 @@ def select_top_edges(
     edges: Iterable[AttentionEdge],
     top_k: int = DEFAULT_TOP_K,
     min_strength: str = "low",
-) -> List[AttentionEdge]:
+) -> list[AttentionEdge]:
     min_ord = STRENGTH_ORDER.get(min_strength, 1)
     filtered = [
         e for e in edges if STRENGTH_ORDER.get(e.strength, 0) >= min_ord and e.strength != "none"
     ]
     filtered.sort(key=lambda e: (-e.score, -STRENGTH_ORDER.get(e.strength, 0), e.to_id))
     # One edge per target neuron (best score wins)
-    best: Dict[str, AttentionEdge] = {}
+    best: dict[str, AttentionEdge] = {}
     for e in filtered:
         if e.to_id not in best:
             best[e.to_id] = e
@@ -350,7 +351,7 @@ def compute_self_attention(
     node_id: str,
     top_k: int = DEFAULT_TOP_K,
     max_candidates: int = MAX_ATTENTION_CANDIDATES,
-) -> Tuple[List[AttentionEdge], str]:
+) -> tuple[list[AttentionEdge], str]:
     """
     Full QSA step for one neuron in brainstorm mode.
 

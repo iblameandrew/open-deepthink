@@ -3,38 +3,42 @@
 This file pins every bug-fix so they cannot silently regress.
 """
 
-import sys, asyncio, json, os, tempfile, re
-
-from pathlib import Path
-ROOT = Path(__file__).resolve().parent.parent
+import asyncio
+import json
+import os
+import re
 import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 import importlib
 
 app_mod = importlib.import_module("app")
 from app import (
-    app,
     CoderMockLLM,
     DistillationMockLLM,
     GraphState,
-    create_synthesis_node,
+    app,
     create_agent_node,
-    sessions,
+    create_synthesis_node,
     log_stream,
+    sessions,
 )
-from deepthink.utils import clean_and_parse_json
-from deepthink.knowledge_distillation import DistillationGraph
 from deepthink.chains import (
-    get_opinion_synthesizer_chain,
     get_brainstorming_opinion_synthesizer_chain,
+    get_opinion_synthesizer_chain,
     get_problem_decomposition_chain,
-)
-from deepthink.chains.synthesis_chains import (
-    get_opinion_synthesizer_chain as synth_version,
 )
 from deepthink.chains.brainstorm_chains import (
     get_brainstorming_opinion_synthesizer_chain as brainstorm_version,
 )
+from deepthink.chains.synthesis_chains import (
+    get_opinion_synthesizer_chain as synth_version,
+)
+from deepthink.knowledge_distillation import DistillationGraph
+from deepthink.utils import clean_and_parse_json
 from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import Runnable
@@ -172,16 +176,12 @@ chk(
 # ============================================================
 def r5():
     # Package version of get_opinion_synthesizer_chain must be the synthesis version
-    assert get_opinion_synthesizer_chain is synth_version, (
-        "package shadowed by brainstorm version"
-    )
+    assert get_opinion_synthesizer_chain is synth_version, "package shadowed by brainstorm version"
     # Brainstorm version is available under its own name
     assert get_brainstorming_opinion_synthesizer_chain is brainstorm_version
 
 
-chk(
-    "BUG-5 regression: opinion_synthesizer_chain duplicates resolved (unique names)", r5
-)
+chk("BUG-5 regression: opinion_synthesizer_chain duplicates resolved (unique names)", r5)
 
 
 # ============================================================
@@ -233,9 +233,7 @@ chk("BUG-7 regression: clean_and_parse_json handles Windows backslash paths", r7
 # BUG-8/9 REGRESSION: stray prints removed, typo fixed
 # ============================================================
 def r8():
-    with open(
-        str(ROOT.joinpath('app.py')), "r", encoding="utf-8"
-    ) as f:
+    with open(str(ROOT.joinpath("app.py")), encoding="utf-8") as f:
         text = f.read()
     # No more "Sesion" typo
     assert "Sesion" not in text, "Typo 'Sesion' still present"
@@ -254,9 +252,7 @@ chk("BUG-8/9 regression: stray print() removed, 'Sesion' typo fixed", r8)
 # BUG-10 REGRESSION: .gitignore covers venv/, tests/, etc.
 # ============================================================
 def r10():
-    with open(
-        str(ROOT.joinpath('.gitignore')), "r", encoding="utf-8"
-    ) as f:
+    with open(str(ROOT.joinpath(".gitignore")), encoding="utf-8") as f:
         text = f.read()
     assert "venv/" in text or ".venv/" in text
     assert "tests/" in text
@@ -271,14 +267,12 @@ chk("BUG-10 regression: .gitignore covers venv, tests, distillation output", r10
 # Version metadata
 # ============================================================
 def r11():
-    from deepthink import __version__, __release_tag__
+    from deepthink import __release_tag__, __version__
 
     assert __version__
     assert __release_tag__
     # Semver-ish: major.minor.patch (optional suffix)
-    assert re.match(r"^\d+\.\d+\.\d+", __version__), (
-        f"Expected semver version, got {__version__}"
-    )
+    assert re.match(r"^\d+\.\d+\.\d+", __version__), f"Expected semver version, got {__version__}"
 
 
 chk("__version__ metadata present (semver)", r11)
@@ -288,8 +282,8 @@ chk("__version__ metadata present (semver)", r11)
 # pyproject.toml exists
 # ============================================================
 def r12():
-    assert os.path.exists(str(ROOT.joinpath('pyproject.toml')))
-    with open(str(ROOT.joinpath('pyproject.toml'))) as f:
+    assert os.path.exists(str(ROOT.joinpath("pyproject.toml")))
+    with open(str(ROOT.joinpath("pyproject.toml"))) as f:
         text = f.read()
     assert "open-deepthink" in text
     assert "grandalf" in text
@@ -344,9 +338,7 @@ async def r14():
         "previous_solution": "",
         "current_problem": "p",
         "original_request": "p",
-        "decomposed_problems": {
-            f"agent_{i}_{j}": f"sub{i}{j}" for i in range(3) for j in range(3)
-        },
+        "decomposed_problems": {f"agent_{i}_{j}": f"sub{i}{j}" for i in range(3) for j in range(3)},
         "layers": [],
         "epoch": 0,
         "max_epochs": 2,
@@ -357,9 +349,7 @@ async def r14():
             "vector_word_size": 4,
             "mbti_archetypes": ["INTP"] * 9,
         },
-        "all_layers_prompts": [
-            [f"p{i}{j}" for j in range(3)] for i in range(3)
-        ],  # 9 agents total
+        "all_layers_prompts": [[f"p{i}{j}" for j in range(3)] for i in range(3)],  # 9 agents total
         "agent_outputs": {},
         "memory": {},
         "final_solution": {"proposed_solution": "answer", "reasoning": "r"},
@@ -432,7 +422,9 @@ def r15b():
         },
     }
     r = client.post("/build_and_run_graph", json=payload)
-    assert r.status_code == 200, f"Expected 200 without API key in debug, got {r.status_code}: {r.text}"
+    assert r.status_code == 200, (
+        f"Expected 200 without API key in debug, got {r.status_code}: {r.text}"
+    )
     body = r.json()
     assert "session_id" in body
     assert body.get("message") == "Graph started."
@@ -460,8 +452,9 @@ async def r16():
             break
 
     # (2) Directly call the metrics node and assert the broadcast shape.
-    from app import create_metrics_node
     import uuid
+
+    from app import create_metrics_node
 
     llm = CoderMockLLM()
     metrics_node = create_metrics_node(llm)
@@ -496,9 +489,7 @@ async def r16():
         f"Expected source=graph, got {last_json.get('source')!r}"
     )
     assert last_json.get("session_id") == sid
-    assert "perplexity" in last_json and isinstance(
-        last_json["perplexity"], (int, float)
-    )
+    assert "perplexity" in last_json and isinstance(last_json["perplexity"], (int, float))
 
 
 def r17():
@@ -506,6 +497,7 @@ def r17():
     that strictly increases across epochs AND across anchors (so the frontend
     can dedup by step rather than by epoch, preventing duplicate x-axis labels)."""
     import inspect
+
     import app as _app
 
     src = inspect.getsource(_app.run_distillation_loop)
@@ -556,7 +548,7 @@ def r18():
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "index.html",
     )
-    with open(html_path, "r", encoding="utf-8") as f:
+    with open(html_path, encoding="utf-8") as f:
         html_src = f.read()
 
     # The chart state must be keyed by step, not just parallel arrays.
@@ -614,9 +606,7 @@ def r18():
     # Now simulate a duplicate event (e.g. SSE retry) at step 3.
     update(3, 999.0, "[A1/E3-dup]")
     assert len(series) == 6, "Duplicate step should not add a new data point"
-    assert series[2]["value"] == 999.0, (
-        "Duplicate step should replace the existing value"
-    )
+    assert series[2]["value"] == 999.0, "Duplicate step should replace the existing value"
     assert series[2]["label"] == "[A1/E3-dup]"
 
 

@@ -9,26 +9,27 @@ from __future__ import annotations
 
 import asyncio
 import re
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
-from deepthink.utils import clean_and_parse_json
 from deepthink.chains.qdad_chains import (
+    get_qdad_critic_chain,
     get_qdad_foundation_chain,
     get_qdad_noise_chain,
-    get_qdad_critic_chain,
     get_qdad_synthesis_chain,
 )
+from deepthink.utils import clean_and_parse_json
+
+from .state import QDADState
 from .utils import (
-    llm_with_temperature,
-    parse_word_list,
+    ascii_grid_preview,
     empty_matrix,
     format_feature_matrix,
-    ascii_grid_preview,
+    llm_with_temperature,
+    parse_word_list,
 )
-from .state import QDADState
 
-
-LogFn = Optional[Callable[[str], Any]]
+LogFn = Callable[[str], Any] | None
 
 
 async def _emit(log: LogFn, msg: str):

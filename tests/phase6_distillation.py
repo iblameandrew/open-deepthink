@@ -1,17 +1,19 @@
 """Phase 6: knowledge_distillation.py - DistillationGraph with DistillationMockLLM."""
 
-import sys, asyncio, json, traceback
-
-from pathlib import Path
-ROOT = Path(__file__).resolve().parent.parent
+import asyncio
+import json
 import sys
+import traceback
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 import importlib
 
 app_mod = importlib.import_module("app")
 from app import DistillationMockLLM
-from deepthink.knowledge_distillation import DistillationGraph, DistillationAgent
 from deepthink.chains import DISTILLATION_ARCHETYPES
+from deepthink.knowledge_distillation import DistillationAgent, DistillationGraph
 
 results = []
 
@@ -42,7 +44,7 @@ def t1():
     assert a.context_memory == ""
     assert a.current_question == ""
     assert a.inherited_from is None
-    assert a.solved_parent_question == False
+    assert not a.solved_parent_question
 
 
 chk("DistillationAgent default state", t1)
@@ -85,9 +87,7 @@ def t4():
     assert len(g.layers) == 7, f"Got {len(g.layers)} layers, expected 7"
     # Each agent has the right archetype
     arch_ids = [a.archetype_id for layer in g.layers for a in layer]
-    assert len(set(arch_ids)) == 12, (
-        f"Expected 12 unique archetypes, got {set(arch_ids)}"
-    )
+    assert len(set(arch_ids)) == 12, f"Expected 12 unique archetypes, got {set(arch_ids)}"
 
 
 chk("DistillationGraph initializes 12 unique agents across 7 layers", t4)
@@ -159,7 +159,7 @@ async def t10():
         debug_mode=True,
     )
     res = await g.run_epoch()
-    assert res == True  # should continue
+    assert res  # should continue
     assert g.epochs_run == 1
     assert len(g.distilled_data) == 12  # 12 agents
     for qa in g.distilled_data:
@@ -188,11 +188,9 @@ chk("Token accounting after one epoch (in/out > 0)", t11)
 
 # 12) Budget exhaustion
 async def t12():
-    g = DistillationGraph(
-        DistillationMockLLM(), ["t"], "a", token_budget=1, debug_mode=True
-    )
+    g = DistillationGraph(DistillationMockLLM(), ["t"], "a", token_budget=1, debug_mode=True)
     res = await g.run_epoch()
-    assert res == False  # budget exhausted
+    assert not res  # budget exhausted
 
 
 chk("Token budget exhaustion stops the run", t12)
@@ -218,7 +216,8 @@ chk("Mirror descent evaluates all agents (difficulty_history populated)", t13)
 
 # 14) File write of dataset
 async def t14():
-    import os, tempfile
+    import os
+    import tempfile
 
     tmp = tempfile.mkdtemp()
     g = DistillationGraph(
@@ -242,7 +241,8 @@ chk("Dataset file is written to disk with 12 QA pairs", t14)
 
 # 15) Topology archive
 async def t15():
-    import os, tempfile
+    import os
+    import tempfile
 
     tmp = tempfile.mkdtemp()
     g = DistillationGraph(
@@ -273,7 +273,7 @@ async def t16():
     )
     g.is_running = False
     res = await g.run_epoch()
-    assert res == False
+    assert not res
 
 
 chk("run_epoch returns False when is_running=False (stop)", t16)
@@ -319,9 +319,7 @@ async def t19():
     epoch2_topics = list(g.topics)
     # After epoch 2, topics should be the seed_creator output (mocked 12 AI topics)
     assert (
-        epoch2_topics != epoch1_topics
-        or "Advanced" in epoch2_topics[0]
-        or len(epoch2_topics) == 12
+        epoch2_topics != epoch1_topics or "Advanced" in epoch2_topics[0] or len(epoch2_topics) == 12
     )
 
 

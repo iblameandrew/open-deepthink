@@ -10,9 +10,8 @@ Philosophy (enforced in every prompt):
     (as Midjourney turns a vague prompt into an image).
 """
 
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-
+from langchain_core.prompts import ChatPromptTemplate
 
 PHILOSOPHY_PREAMBLE = """
 QUALITATIVE COMPUTATION CONTRACT

@@ -11,7 +11,6 @@ import json
 import random
 import re
 import traceback
-from typing import List
 
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
@@ -133,7 +132,7 @@ def create_agent_node(llm, node_id):
         # Algorithm mode keeps decomposed_problems (L0) / upstream outputs (L1+).
         brainstorm_context = ""
         attention_block = ""
-        attention_edge_dicts: List[dict] = []
+        attention_edge_dicts: list[dict] = []
         json_schema_block = "#Your JSON formatted response:"
         if state.get("mode") == "brainstorm":
             prior_conv = state.get("brainstorm_prior_conversation", "") or ""
@@ -488,7 +487,7 @@ def create_synthesis_node(llm):
                             "proposed_solution": str(final_solution),
                             "mode": "algorithm",
                         }
-                await emit(f"SUCCESS: Synthesis complete.")
+                await emit("SUCCESS: Synthesis complete.")
             except (json.JSONDecodeError, AttributeError):
                 await emit(
                     f"ERROR: Could not decode JSON from synthesis chain. Result: {final_solution_str}"

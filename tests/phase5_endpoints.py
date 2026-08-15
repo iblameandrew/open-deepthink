@@ -1,10 +1,10 @@
 """Phase 5: FastAPI endpoints - all routes exist, methods, return types."""
 
-import sys, traceback
-
-from pathlib import Path
-ROOT = Path(__file__).resolve().parent.parent
 import sys
+import traceback
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 import importlib
 
@@ -35,9 +35,7 @@ chk("GET / endpoint exists", t1)
 
 # Inference from state
 def t2():
-    routes = [
-        r for r in app.routes if getattr(r, "path", "") == "/run_inference_from_state"
-    ]
+    routes = [r for r in app.routes if getattr(r, "path", "") == "/run_inference_from_state"]
     assert routes, "Missing /run_inference_from_state"
 
 
@@ -55,9 +53,7 @@ chk("POST /build_and_run_graph exists", t3)
 
 # Export QNN
 def t4():
-    routes = [
-        r for r in app.routes if getattr(r, "path", "") == "/export_qnn/{session_id}"
-    ]
+    routes = [r for r in app.routes if getattr(r, "path", "") == "/export_qnn/{session_id}"]
     assert routes
 
 
@@ -147,11 +143,7 @@ chk("GET /log_stream exists", t11)
 
 # Download report
 def t12():
-    routes = [
-        r
-        for r in app.routes
-        if getattr(r, "path", "") == "/download_report/{session_id}"
-    ]
+    routes = [r for r in app.routes if getattr(r, "path", "") == "/download_report/{session_id}"]
     assert routes
 
 
@@ -187,9 +179,7 @@ chk("GET /distillation_data exists", t15)
 
 # Download distillation
 def t16():
-    routes = [
-        r for r in app.routes if getattr(r, "path", "") == "/download_distillation"
-    ]
+    routes = [r for r in app.routes if getattr(r, "path", "") == "/download_distillation"]
     assert routes
 
 
@@ -200,9 +190,7 @@ chk("GET /download_distillation exists", t16)
 def t17():
     # The /js, /css, /static mounts don't show in app.routes in same way, but they exist
     # Just check the app has them as routes
-    routes = (
-        [r for r in app.app.routes if hasattr(r, "path")] if hasattr(app, "app") else []
-    )
+    routes = [r for r in app.app.routes if hasattr(r, "path")] if hasattr(app, "app") else []
 
 
 chk("Static mounts (informational)", t17)

@@ -1,29 +1,31 @@
 """Phase 8: app.py graph nodes (agent_node, synthesis_node, code_execution_node, etc.) with mock LLM."""
 
-import sys, asyncio, traceback
-
-from pathlib import Path
-ROOT = Path(__file__).resolve().parent.parent
+import asyncio
 import sys
+import traceback
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 import importlib
 
 app_mod = importlib.import_module("app")
+import json
+
 from app import (
-    app,
     CoderMockLLM,
     GraphState,
+    app,
     create_agent_node,
-    create_synthesis_node,
-    create_code_execution_node,
     create_archive_epoch_outputs_node,
+    create_code_execution_node,
     create_metrics_node,
     create_reframe_and_decompose_node,
+    create_synthesis_node,
     create_update_agent_prompts_node,
     log_stream,
     sessions,
 )
-import json
 
 results = []
 
@@ -38,9 +40,7 @@ def chk(name, fn):
     except AssertionError as e:
         results.append((name, "FAIL", f"AssertionError: {e}"))
     except Exception as e:
-        results.append(
-            (name, "FAIL", f"{type(e).__name__}: {e}\n{traceback.format_exc()}")
-        )
+        results.append((name, "FAIL", f"{type(e).__name__}: {e}\n{traceback.format_exc()}"))
 
 
 # Base state for tests
@@ -133,8 +133,8 @@ chk("create_agent_node layer 1 uses previous layer outputs", t2)
 # 3) Agent node with invalid JSON falls back gracefully
 async def t3():
     # Use a custom LLM that returns garbage
-    from langchain_core.runnables import Runnable
     from langchain_core.messages import AIMessage
+    from langchain_core.runnables import Runnable
 
     class GarbageLLM(Runnable):
         def invoke(self, *a, **k):
@@ -268,7 +268,7 @@ async def t10():
     s["is_code_request"] = False
     node = create_code_execution_node(llm)(s)
     out = await node
-    assert out.get("synthesis_execution_success") == True
+    assert out.get("synthesis_execution_success")
     assert "modules" not in out
 
 
@@ -374,9 +374,7 @@ async def t16():
     assert out["original_request"] == "fix the deadlock"  # ground truth preserved
     assert out["current_problem"] != "fix the deadlock" or "Harder" in out["current_problem"]
     # All agents share the new thinking challenge
-    assert len(out["decomposed_problems"]) == sum(
-        len(layer) for layer in s["all_layers_prompts"]
-    )
+    assert len(out["decomposed_problems"]) == sum(len(layer) for layer in s["all_layers_prompts"])
 
 
 chk("reframe_and_decompose_node QNN reframe in brainstorm mode", t16)

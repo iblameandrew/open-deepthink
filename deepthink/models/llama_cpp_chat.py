@@ -1,6 +1,6 @@
 import os
-from typing import Any, Dict, List, Optional
-from langchain_openai import ChatOpenAI
+from typing import Any
+
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import (
     AIMessage,
@@ -40,7 +40,7 @@ class ChatLlamaCpp(BaseChatModel):
     def _llm_type(self) -> str:
         return "llama-cpp-server"
 
-    def _convert_messages(self, messages: List[BaseMessage]) -> List[Dict[str, str]]:
+    def _convert_messages(self, messages: list[BaseMessage]) -> list[dict[str, str]]:
         """Convert LangChain messages to OpenAI-compatible format."""
         converted = []
         for msg in messages:
@@ -56,8 +56,8 @@ class ChatLlamaCpp(BaseChatModel):
 
     def _generate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
         run_manager=None,
         **kwargs: Any,
     ) -> ChatResult:
@@ -80,8 +80,8 @@ class ChatLlamaCpp(BaseChatModel):
 
     async def _agenerate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
         run_manager=None,
         **kwargs: Any,
     ) -> ChatResult:
