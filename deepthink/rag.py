@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from langchain_community.vectorstores import FAISS
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
@@ -21,7 +21,7 @@ class RAPTORRetriever(BaseRetriever):
 
     def _get_relevant_documents(
         self, query: str, *, run_manager: CallbackManagerForRetrieverRun
-    ) -> List[Document]:
+    ) -> list[Document]:
         return self.raptor_index.retrieve(query)
 
 
@@ -33,10 +33,10 @@ class RAPTOR:
             chunk_size=chunk_size, chunk_overlap=chunk_overlap
         )
         self.tree = {}
-        self.all_nodes: Dict[str, Document] = {}
+        self.all_nodes: dict[str, Document] = {}
         self.vector_store = None
 
-    async def add_documents(self, documents: List[Document]):
+    async def add_documents(self, documents: list[Document]):
         await emit("Step 1: Assigning IDs to initial chunks (Level 0)...")
         level_0_node_ids = []
         for i, doc in enumerate(documents):
@@ -54,15 +54,12 @@ class RAPTOR:
             clustered_indices = self._cluster_nodes(current_level_docs)
 
             next_level_node_ids = []
-            num_clusters = len(clustered_indices)
             await emit(f"Summarizing Level {next_level}...")
 
             summarization_tasks = []
             for i, indices in enumerate(clustered_indices):
                 cluster_docs = [current_level_docs[j] for j in indices]
-                summarization_tasks.append(
-                    self._summarize_cluster(cluster_docs, next_level, i)
-                )
+                summarization_tasks.append(self._summarize_cluster(cluster_docs, next_level, i))
 
             summaries = await asyncio.gather(*summarization_tasks)
 
@@ -78,17 +75,17 @@ class RAPTOR:
         self.vector_store = FAISS.from_documents(all_doc_objects, self.embeddings_model)
         await emit("RAPTOR Indexing complete.")
 
-    def _cluster_nodes(self, docs: List[Document], n_clusters=None):
+    def _cluster_nodes(self, docs: list[Document], n_clusters=None):
         import numpy as np
 
-        embeddings = self.embeddings_model.embed_documents(
-            [d.page_content for d in docs]
-        )
+        embeddings = self.embeddings_model.embed_documents([d.page_content for d in docs])
 
         if not embeddings:
             # _cluster_nodes is synchronous; we cannot await log_stream here.
             # Use a best-effort asyncio schedule if a loop is running, else print.
-            msg = "WARNING: Embeddings generation returned empty. Skipping clustering for this level."
+            msg = (
+                "WARNING: Embeddings generation returned empty. Skipping clustering for this level."
+            )
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
@@ -134,15 +131,13 @@ class RAPTOR:
         return clustered_indices
 
     async def _summarize_cluster(
-        self, docs: List[Document], level: int, cluster_idx: int
+        self, docs: list[Document], level: int, cluster_idx: int
     ) -> Document:
         combined_text = "\n\n".join([d.page_content for d in docs])
 
         # Use summarization chain
         summary_chain = get_memory_summarizer_chain(self.llm)  # Reuse memory summarizer
-        summary = await summary_chain.ainvoke(
-            {"history": combined_text}
-        )  # repurposing history arg
+        summary = await summary_chain.ainvoke({"history": combined_text})  # repurposing history arg
 
         node_id = f"{level}_{cluster_idx}"
         metadata = {
@@ -153,7 +148,7 @@ class RAPTOR:
         }
         return Document(page_content=summary, metadata=metadata)
 
-    def retrieve(self, query: str, k: int = 5) -> List[Document]:
+    def retrieve(self, query: str, k: int = 5) -> list[Document]:
         if not self.vector_store:
             return []
 
@@ -161,4 +156,3 @@ class RAPTOR:
         # In full RAPTOR, you might retrieve from different levels.
         # Here we just use the flattened FAISS index of all nodes.
         return self.vector_store.similarity_search(query, k=k)
-

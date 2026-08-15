@@ -1,15 +1,17 @@
 """Phase 9: End-to-end build_and_run with debug mode (CoderMockLLM)."""
 
-import sys, asyncio, traceback, json
-
-from pathlib import Path
-ROOT = Path(__file__).resolve().parent.parent
+import asyncio
+import json
 import sys
+import traceback
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 import importlib
 
 app_mod = importlib.import_module("app")
-from app import app, CoderMockLLM, sessions, log_stream
+from app import CoderMockLLM, app, log_stream, sessions
 from fastapi.testclient import TestClient
 
 results = []
@@ -482,9 +484,7 @@ def t19():
             break
     if not found:
         # Soft-pass: this is a TestClient/threading artifact.
-        print(
-            "  INFO: No completed algorithm session found (TestClient/threading artifact)."
-        )
+        print("  INFO: No completed algorithm session found (TestClient/threading artifact).")
 
 
 chk("App Slot Machine / QDAD eventually produces a final_solution (with debug LLM)", t19)

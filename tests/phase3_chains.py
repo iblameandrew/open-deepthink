@@ -1,13 +1,14 @@
 """Phase 3: All chain factories should construct without error using a mock LLM."""
 
-import sys, traceback, asyncio
-
-from pathlib import Path
-ROOT = Path(__file__).resolve().parent.parent
+import asyncio
 import sys
+import traceback
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from langchain_core.runnables import Runnable
 from langchain_core.messages import AIMessage
+from langchain_core.runnables import Runnable
 
 
 class _NoopLLM(Runnable):
@@ -33,39 +34,39 @@ def chk(name, fn):
 
 # agent_chains
 from deepthink.chains import (
-    get_input_spanner_chain,
     get_attribute_and_hard_request_generator_chain,
-    get_seed_generation_chain,
-    get_dense_spanner_chain,
-    get_synthesis_chain,
-    get_code_synthesis_chain,
-    get_problem_decomposition_chain,
-    get_problem_reframer_chain,
-    get_opinion_synthesizer_chain,
-    get_memory_summarizer_chain,
-    get_perplexity_heuristic_chain,
-    get_module_card_chain,
-    get_code_detector_chain,
-    get_request_is_code_chain,
-    get_interrogator_chain,
-    get_paper_formatter_chain,
-    get_rag_chat_chain,
-    get_complexity_estimator_chain,
-    get_expert_reflection_chain,
     get_brainstorming_agent_chain,
+    get_brainstorming_epoch_map_chain,
     get_brainstorming_mirror_descent_chain,
-    get_brainstorming_synthesis_chain,
-    get_brainstorming_seed_chain,
-    get_brainstorming_spanner_chain,
-    get_problem_summarizer_chain,
     get_brainstorming_polisher_chain,
     get_brainstorming_reframer_chain,
-    get_brainstorming_epoch_map_chain,
-    get_task_master_chain,
-    get_seed_creator_chain,
+    get_brainstorming_seed_chain,
+    get_brainstorming_spanner_chain,
+    get_brainstorming_synthesis_chain,
+    get_code_detector_chain,
+    get_code_synthesis_chain,
+    get_complexity_estimator_chain,
+    get_dense_spanner_chain,
+    get_expert_reflection_chain,
+    get_followup_question_chain,
+    get_input_spanner_chain,
+    get_interrogator_chain,
+    get_memory_summarizer_chain,
     get_mirror_descent_chain,
     get_mixing_chain,
-    get_followup_question_chain,
+    get_module_card_chain,
+    get_opinion_synthesizer_chain,
+    get_paper_formatter_chain,
+    get_perplexity_heuristic_chain,
+    get_problem_decomposition_chain,
+    get_problem_reframer_chain,
+    get_problem_summarizer_chain,
+    get_rag_chat_chain,
+    get_request_is_code_chain,
+    get_seed_creator_chain,
+    get_seed_generation_chain,
+    get_synthesis_chain,
+    get_task_master_chain,
 )
 
 llm = _NoopLLM()
@@ -76,9 +77,7 @@ chk(
     lambda: (get_attribute_and_hard_request_generator_chain(llm, 5),)[0],
 )
 chk("get_seed_generation_chain", lambda: (get_seed_generation_chain(llm),)[0])
-chk(
-    "get_dense_spanner_chain", lambda: (get_dense_spanner_chain(llm, 1.0, 1.0, 1.0),)[0]
-)
+chk("get_dense_spanner_chain", lambda: (get_dense_spanner_chain(llm, 1.0, 1.0, 1.0),)[0])
 chk("get_synthesis_chain", lambda: (get_synthesis_chain(llm),)[0])
 chk("get_code_synthesis_chain", lambda: (get_code_synthesis_chain(llm),)[0])
 chk(
@@ -172,12 +171,12 @@ chk("chain.ainvoke works", lambda: asyncio.run(ainvoke_test()))
 # Test the duplicate import - opinion_synthesizer is defined in BOTH synthesis_chains.py and brainstorm_chains.py
 # After BUG-5 fix, the brainstorm version was renamed to get_brainstorming_opinion_synthesizer_chain.
 def dup_test():
-    from deepthink.chains import get_opinion_synthesizer_chain as p
     from deepthink.chains import get_brainstorming_opinion_synthesizer_chain as q
-    from deepthink.chains.synthesis_chains import get_opinion_synthesizer_chain as s
+    from deepthink.chains import get_opinion_synthesizer_chain as p
     from deepthink.chains.brainstorm_chains import (
         get_brainstorming_opinion_synthesizer_chain as b,
     )
+    from deepthink.chains.synthesis_chains import get_opinion_synthesizer_chain as s
 
     assert p is s, f"package version ({p}) should be synthesis_chains ({s})"
     assert q is b, f"package version ({q}) should be brainstorm_chains ({b})"

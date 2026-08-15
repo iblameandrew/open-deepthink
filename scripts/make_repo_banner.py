@@ -1,4 +1,5 @@
 """Compose thematic open-deepthink repo banner with exact typography."""
+
 from __future__ import annotations
 
 import math
@@ -43,7 +44,9 @@ def cover_crop(src: Image.Image, w: int, h: int) -> Image.Image:
     return bg.crop((left, top, left + w, top + h))
 
 
-def radial_alpha(w: int, h: int, cx: float, cy: float, rx: float, ry: float, power: float) -> Image.Image:
+def radial_alpha(
+    w: int, h: int, cx: float, cy: float, rx: float, ry: float, power: float
+) -> Image.Image:
     mask = Image.new("L", (w, h), 0)
     px = mask.load()
     for y in range(h):

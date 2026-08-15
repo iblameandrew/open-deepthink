@@ -30,7 +30,7 @@ def main() -> None:
     # export_qnn at 3573 (index 3572)
     rest = "".join(lines[3572:])
 
-    extra_imports = '''from deepthink.cost import estimate_qdad_cost, estimate_qnn_cost
+    extra_imports = """from deepthink.cost import estimate_qdad_cost, estimate_qnn_cost
 from deepthink.mocks import CoderMockLLM, DistillationMockLLM, MockLLM
 from deepthink.rag import RAPTOR, RAPTORRetriever
 from deepthink.runtime.bus import set_log_queue
@@ -48,7 +48,7 @@ from deepthink.runtime.nodes import (
 from deepthink.sessions import SessionStore
 from deepthink.state import GraphState
 
-'''
+"""
 
     # Insert extra imports after self_attention import if present
     needle = "from deepthink.self_attention import compute_self_attention\n"
@@ -62,7 +62,7 @@ from deepthink.state import GraphState
     head += "set_log_queue(log_stream)\n\n"
 
     # After brainstorm/qdad early returns, reject unknown modes
-    reject = '''
+    reject = """
     return JSONResponse(
         content={
             "message": (
@@ -74,7 +74,7 @@ from deepthink.state import GraphState
     )
 
 
-'''
+"""
 
     new = head + tail_start + reject + rest
     APP.write_text(new, encoding="utf-8")

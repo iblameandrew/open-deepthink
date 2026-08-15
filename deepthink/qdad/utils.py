@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, List, Optional
+from typing import Any
 
 
 def llm_with_temperature(llm, temperature: float):
@@ -14,9 +14,9 @@ def llm_with_temperature(llm, temperature: float):
         return llm
 
 
-def parse_word_list(raw: Any, n: int, kind: str = "word") -> List[str]:
+def parse_word_list(raw: Any, n: int, kind: str = "word") -> list[str]:
     """Normalize LLM output into exactly `n` distinct words (basis vectors)."""
-    words: List[str] = []
+    words: list[str] = []
     if isinstance(raw, list):
         words = [str(w).strip() for w in raw if str(w).strip()]
     elif isinstance(raw, str):
@@ -27,7 +27,7 @@ def parse_word_list(raw: Any, n: int, kind: str = "word") -> List[str]:
         ]
 
     seen = set()
-    cleaned: List[str] = []
+    cleaned: list[str] = []
     for w in words:
         key = w.lower()
         if key in seen:
@@ -45,11 +45,11 @@ def parse_word_list(raw: Any, n: int, kind: str = "word") -> List[str]:
     return cleaned[:n]
 
 
-def empty_matrix(n: int) -> List[List[str]]:
+def empty_matrix(n: int) -> list[list[str]]:
     return [["" for _ in range(n)] for _ in range(n)]
 
 
-def format_feature_matrix(nouns: List[str], verbs: List[str], matrix: List[List[str]]) -> str:
+def format_feature_matrix(nouns: list[str], verbs: list[str], matrix: list[list[str]]) -> str:
     """Human-readable N×N feature matrix for synthesis + transparency."""
     lines = []
     n = len(nouns)
@@ -60,7 +60,7 @@ def format_feature_matrix(nouns: List[str], verbs: List[str], matrix: List[List[
     return "\n".join(lines)
 
 
-def ascii_grid_preview(nouns: List[str], verbs: List[str]) -> str:
+def ascii_grid_preview(nouns: list[str], verbs: list[str]) -> str:
     """Compact ASCII of the noun×verb basis for log / graph viz."""
     n = len(nouns)
     header = "        " + " | ".join(f"{v[:8]:^8}" for v in verbs)
@@ -87,7 +87,7 @@ def clamp_params(
 def enrich_prompt(
     user_prompt: str,
     document_context: str = "",
-    chat_history: Optional[list] = None,
+    chat_history: list | None = None,
 ) -> str:
     enriched = user_prompt or ""
     if document_context:

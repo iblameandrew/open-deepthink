@@ -493,6 +493,7 @@ If `run_template.py` is missing from the skill folder, write this **exact** file
 QDAD / App Slot Machine runner â€” materialized on-the-fly by the /qdad skill.
 Discovers deepthink from the workspace tree; runs qualitative diffusion.
 """
+
 from __future__ import annotations
 
 import argparse

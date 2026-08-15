@@ -2,11 +2,12 @@
 After bug-fix BUG-1, the patterns match the *current* chain prompts.
 """
 
-import sys, asyncio, traceback
-
-from pathlib import Path
-ROOT = Path(__file__).resolve().parent.parent
+import asyncio
 import sys
+import traceback
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 import importlib
 
@@ -79,9 +80,7 @@ chk("DistillationMockLLM recognizes Followup pattern (FIXED)", t3)
 
 
 async def t4():
-    out = await DMLL().ainvoke(
-        "You are the Mirror Descent Agent.\nYour task is to evaluate"
-    )
+    out = await DMLL().ainvoke("You are the Mirror Descent Agent.\nYour task is to evaluate")
     content = out.content if hasattr(out, "content") else out
     import json
 
@@ -93,9 +92,7 @@ chk("DistillationMockLLM recognizes Mirror Descent pattern", t4)
 
 
 async def t5():
-    out = await DMLL().ainvoke(
-        "You are a Mixing Agent.\nYour goal is to spawn a new Child agent"
-    )
+    out = await DMLL().ainvoke("You are a Mixing Agent.\nYour goal is to spawn a new Child agent")
     content = out.content if hasattr(out, "content") else out
     import json
 
@@ -222,9 +219,7 @@ chk("CoderMockLLM re-framer returns new_problem", t13)
 
 
 async def t14():
-    out = await CMLL().ainvoke(
-        "You are an expert code synthesis agent.\nSynthesize the final code"
-    )
+    out = await CMLL().ainvoke("You are an expert code synthesis agent.\nSynthesize the final code")
     content = out.content if hasattr(out, "content") else out
     assert "```python" in content
 
@@ -261,9 +256,7 @@ chk("CoderMockLLM QNN node generator returns persona JSON", t16)
 
 
 async def t17():
-    out = await CMLL().ainvoke(
-        "You are a Concept Spanner.\nGenerate exactly 3 distinct concepts"
-    )
+    out = await CMLL().ainvoke("You are a Concept Spanner.\nGenerate exactly 3 distinct concepts")
     content = out.content if hasattr(out, "content") else out
     assert isinstance(content, str)
     assert len(content.split()) >= 1

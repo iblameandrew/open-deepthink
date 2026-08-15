@@ -541,6 +541,7 @@ If `run_template.py` is missing from the skill folder, write this **exact** file
 QNN runner â€” materialized on-the-fly by the /qnn skill.
 Discovers deepthink from the workspace tree; runs the QNN pipeline.
 """
+
 from __future__ import annotations
 
 import argparse

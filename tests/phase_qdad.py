@@ -1,11 +1,11 @@
 """QDAD / App Slot Machine unit tests — package structure + LangGraph pipeline."""
-import sys
-import asyncio
-import traceback
 
-from pathlib import Path
-ROOT = Path(__file__).resolve().parent.parent
+import asyncio
 import sys
+import traceback
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 results = []
@@ -23,8 +23,8 @@ def chk(name, fn):
 
 def t1():
     from deepthink.qdad import QDADState, build_qdad_graph, run_qdad_pipeline
-    from deepthink.qdad.utils import clamp_params, parse_word_list, format_feature_matrix
     from deepthink.qdad.graph import draw_qdad_ascii
+    from deepthink.qdad.utils import clamp_params, format_feature_matrix, parse_word_list
 
     assert callable(build_qdad_graph)
     assert callable(run_qdad_pipeline)
@@ -40,13 +40,13 @@ chk("qdad package imports + utils", t1)
 
 
 def t2():
+    from app import CoderMockLLM
     from deepthink.chains import (
+        get_qdad_critic_chain,
         get_qdad_foundation_chain,
         get_qdad_noise_chain,
-        get_qdad_critic_chain,
         get_qdad_synthesis_chain,
     )
-    from app import CoderMockLLM
 
     llm = CoderMockLLM()
     for factory in (
@@ -114,9 +114,10 @@ def t4():
         assert len(sol["nouns"]) == 2
         assert len(sol["verbs"]) == 2
         assert len(sol["feature_matrix"]) == 2
-        assert "App Build Prompt" in sol["proposed_solution"] or "app" in sol[
-            "proposed_solution"
-        ].lower()
+        assert (
+            "App Build Prompt" in sol["proposed_solution"]
+            or "app" in sol["proposed_solution"].lower()
+        )
         assert sessions[sid]["final_solution"] is not None
         assert any("PHASE 0" in m or "Foundation" in m for m in logs)
         assert any("PHASE 2" in m or "Noise" in m for m in logs)

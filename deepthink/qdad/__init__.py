@@ -10,9 +10,9 @@ Philosophy (strict):
     (the way Midjourney turns a vague prompt into an image).
 """
 
-from .state import QDADState
 from .graph import build_qdad_graph
 from .pipeline import run_qdad_pipeline
+from .state import QDADState
 
 
 def default_qdad_params():

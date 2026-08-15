@@ -1,84 +1,53 @@
+import asyncio
 import io
-from contextlib import redirect_stdout, redirect_stderr
-import names
+import json
+import random
 import re
 import time
-import uvicorn
-from fastapi import FastAPI, Request, Body, File, UploadFile, Form
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
-
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.messages import AIMessage
-from langgraph.graph import StateGraph, END, START
-from dotenv import load_dotenv
-import json
-from typing import TypedDict, Annotated, List, Optional
-import asyncio
-from sse_starlette.sse import EventSourceResponse
-import random
 import traceback
 import uuid
-import io
 import zipfile
-from langchain_core.runnables import Runnable
-from langchain_core.runnables.config import RunnableConfig
-from langchain_core.retrievers import BaseRetriever
-from typing import Dict, Any, TypedDict, Annotated, Tuple
-from langchain_core.callbacks import CallbackManagerForRetrieverRun
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from contextlib import redirect_stderr, redirect_stdout
+from typing import Any
 
-# langchain_community is deprecated / being sunset (see warning on import).
-# We still depend on it for the FAISS vectorstore integration (widely used pattern).
-# Migration path: https://github.com/langchain-ai/langchain-community/issues/674
-# For now we keep it; if FAISS support moves to langchain-faiss we can switch later.
-from langchain_community.vectorstores import FAISS
-from langchain_core.documents import Document
-from langchain_core.messages import SystemMessage, HumanMessage
-from sklearn.cluster import KMeans
-from contextlib import redirect_stdout
-from fastapi.staticfiles import StaticFiles
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_core.embeddings import Embeddings
-from deepthink.models import ChatLlamaCpp
 import fitz  # PyMuPDF for PDF text extraction
+import names
+import uvicorn
 from deepthink.chains import (
-    get_input_spanner_chain,
     get_attribute_and_hard_request_generator_chain,
-    get_seed_generation_chain,
-    get_dense_spanner_chain,
-    get_synthesis_chain,
-    get_code_synthesis_chain,
-    get_problem_decomposition_chain,
-    get_problem_reframer_chain,
-    get_opinion_synthesizer_chain,
-    get_memory_summarizer_chain,
-    get_perplexity_heuristic_chain,
-    get_module_card_chain,
-    get_code_detector_chain,
-    get_request_is_code_chain,
-    get_interrogator_chain,
-    get_paper_formatter_chain,
-    get_rag_chat_chain,
-    get_complexity_estimator_chain,
-    get_expert_reflection_chain,
     get_brainstorming_agent_chain,
+    get_brainstorming_epoch_map_chain,
     get_brainstorming_mirror_descent_chain,
-    get_brainstorming_synthesis_chain,
-    get_brainstorming_seed_chain,
-    get_brainstorming_spanner_chain,
-    get_problem_summarizer_chain,
     get_brainstorming_polisher_chain,
     get_brainstorming_reframer_chain,
-    get_brainstorming_epoch_map_chain,
+    get_brainstorming_seed_chain,
+    get_brainstorming_spanner_chain,
+    get_brainstorming_synthesis_chain,
+    get_code_detector_chain,
+    get_code_synthesis_chain,
+    get_complexity_estimator_chain,
+    get_dense_spanner_chain,
+    get_expert_reflection_chain,
+    get_input_spanner_chain,
+    get_interrogator_chain,
+    get_memory_summarizer_chain,
+    get_module_card_chain,
+    get_opinion_synthesizer_chain,
+    get_paper_formatter_chain,
+    get_perplexity_heuristic_chain,
+    get_problem_decomposition_chain,
+    get_problem_reframer_chain,
+    get_problem_summarizer_chain,
+    get_rag_chat_chain,
+    get_seed_generation_chain,
+    get_synthesis_chain,
 )
+from deepthink.cost import estimate_qdad_cost, estimate_qnn_cost
+from deepthink.knowledge_distillation import DistillationGraph
+from deepthink.mocks import CoderMockLLM, DistillationMockLLM, MockLLM
+from deepthink.models import ChatLlamaCpp
 from deepthink.qdad import run_qdad_pipeline
 from deepthink.qnn import run_qnn_pipeline
-from deepthink.knowledge_distillation import DistillationGraph
-from deepthink.utils import clean_and_parse_json, execute_code_in_sandbox
-from deepthink.self_attention import compute_self_attention
-from deepthink.cost import estimate_qdad_cost, estimate_qnn_cost
-from deepthink.mocks import CoderMockLLM, DistillationMockLLM, MockLLM
 from deepthink.rag import RAPTOR, RAPTORRetriever
 from deepthink.runtime.bus import set_log_queue
 from deepthink.runtime.nodes import (
@@ -92,12 +61,39 @@ from deepthink.runtime.nodes import (
     create_update_agent_prompts_node,
     create_update_rag_index_node,
 )
+from deepthink.self_attention import compute_self_attention
 from deepthink.sessions import SessionStore
 from deepthink.state import GraphState
+from deepthink.utils import clean_and_parse_json, execute_code_in_sandbox
+from dotenv import load_dotenv
+from fastapi import Body, FastAPI, File, Form, Request, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
-
-from langchain_core.callbacks import BaseCallbackHandler, AsyncCallbackHandler
+# langchain_community is deprecated / being sunset (see warning on import).
+# We still depend on it for the FAISS vectorstore integration (widely used pattern).
+# Migration path: https://github.com/langchain-ai/langchain-community/issues/674
+# For now we keep it; if FAISS support moves to langchain-faiss we can switch later.
+from langchain_community.vectorstores import FAISS
+from langchain_core.callbacks import (
+    AsyncCallbackHandler,
+    BaseCallbackHandler,
+    CallbackManagerForRetrieverRun,
+)
+from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.outputs import LLMResult
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.retrievers import BaseRetriever
+from langchain_core.runnables import Runnable
+from langchain_core.runnables.config import RunnableConfig
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langgraph.graph import END, START, StateGraph
+from sklearn.cluster import KMeans
+from sse_starlette.sse import EventSourceResponse
 
 
 class TokenUsageTracker(AsyncCallbackHandler):
@@ -124,9 +120,9 @@ class TokenUsageTracker(AsyncCallbackHandler):
                             generation.message, "usage_metadata"
                         ):
                             usage = generation.message.usage_metadata
-                            self.total_tokens += usage.get(
-                                "input_tokens", 0
-                            ) + usage.get("output_tokens", 0)
+                            self.total_tokens += usage.get("input_tokens", 0) + usage.get(
+                                "output_tokens", 0
+                            )
                             self.prompt_tokens += usage.get("input_tokens", 0)
                             self.completion_tokens += usage.get("output_tokens", 0)
 
@@ -186,7 +182,7 @@ set_log_queue(log_stream)
 
 @app.get("/")
 def get_index():
-    with open("index.html", "r", encoding="utf-8") as f:
+    with open("index.html", encoding="utf-8") as f:
         return HTMLResponse(content=f.read(), status_code=200)
 
 
@@ -202,9 +198,7 @@ async def run_inference_from_state(payload: dict = Body(...)):
 
         if not imported_state or not user_prompt:
             return JSONResponse(
-                content={
-                    "error": "Invalid payload. 'imported_state' and 'prompt' are required."
-                },
+                content={"error": "Invalid payload. 'imported_state' and 'prompt' are required."},
                 status_code=400,
             )
 
@@ -229,25 +223,19 @@ async def run_inference_from_state(payload: dict = Body(...)):
         all_layers_prompts = imported_state["all_layers_prompts"]
         cot_trace_depth = len(all_layers_prompts)
 
-        agent_chain = (
-            ChatPromptTemplate.from_template("{input}") | llm | StrOutputParser()
-        )
+        agent_chain = ChatPromptTemplate.from_template("{input}") | llm | StrOutputParser()
 
         async def inference_agent_logic(state: GraphState, node_id: str):
             await log_stream.put(f"--- [INFERENCE] Invoking Agent: {node_id} ---")
             layer_index_str, agent_index_str = node_id.split("_")[1:]
             layer_index = int(layer_index_str)
-            agent_prompt = state["all_layers_prompts"][layer_index][
-                int(agent_index_str)
-            ]
+            agent_prompt = state["all_layers_prompts"][layer_index][int(agent_index_str)]
 
             if layer_index == 0:
                 input_data = state["original_request"]
             else:
                 prev_layer_index = layer_index - 1
-                num_agents_prev_layer = len(
-                    state["all_layers_prompts"][prev_layer_index]
-                )
+                num_agents_prev_layer = len(state["all_layers_prompts"][prev_layer_index])
                 prev_layer_outputs = [
                     state["agent_outputs"].get(f"agent_{prev_layer_index}_{k}", {})
                     for k in range(num_agents_prev_layer)
@@ -280,12 +268,7 @@ async def run_inference_from_state(payload: dict = Body(...)):
                 node_id = f"agent_{i}_{j}"
                 workflow.add_node(node_id, create_inference_node_function(node_id))
 
-        workflow.add_node(
-            "synthesis",
-            create_synthesis_node(
-                synthesis_llm if "synthesis_llm" in locals() else llm
-            ),
-        )
+        workflow.add_node("synthesis", create_synthesis_node(llm))
 
         first_layer_nodes = [f"agent_0_{j}" for j in range(len(all_layers_prompts[0]))]
         workflow.set_entry_point(first_layer_nodes[0])
@@ -294,9 +277,7 @@ async def run_inference_from_state(payload: dict = Body(...)):
                 workflow.add_edge(first_layer_nodes[0], node)
 
         for i in range(cot_trace_depth - 1):
-            for current_node in [
-                f"agent_{i}_{j}" for j in range(len(all_layers_prompts[i]))
-            ]:
+            for current_node in [f"agent_{i}_{j}" for j in range(len(all_layers_prompts[i]))]:
                 for next_node in [
                     f"agent_{i + 1}_{k}" for k in range(len(all_layers_prompts[i + 1]))
                 ]:
@@ -398,6 +379,7 @@ async def run_qdad_background(
     Delegates to deepthink.qdad.run_qdad_pipeline (LangGraph):
       foundation → grid → noise → denoise* → synthesize
     """
+
     async def _log(msg: str):
         await log_stream.put(msg)
 
@@ -417,8 +399,6 @@ async def run_qdad_background(
 @app.post("/build_and_run_graph")
 async def build_and_run_graph(payload: dict = Body(...)):
     llm = None
-    embeddings_model = None
-    summarizer_llm = None
     params = payload.get("params", {})
     mode = payload.get("mode", "brainstorm")
 
@@ -430,11 +410,7 @@ async def build_and_run_graph(payload: dict = Body(...)):
         # Settings / env provide defaults; request params override (backward compatible).
         cfg = get_settings()
         provider = params.get("provider", cfg.default_provider) or cfg.default_provider
-        api_key = (
-            params.get("api_key", "")
-            or cfg.resolved_api_key()
-            or ""
-        )
+        api_key = params.get("api_key", "") or cfg.resolved_api_key() or ""
 
         # Hoist common config and model choices for per-agent / synthesis support (visible in all branches)
         openrouter_model = params.get("openrouter_model", cfg.openrouter_model)
@@ -442,11 +418,11 @@ async def build_and_run_graph(payload: dict = Body(...)):
         llamacpp_model = params.get("llamacpp_model", cfg.llamacpp_model)
         # normalize llamacpp url early
         llamacpp_url = cfg.normalize_llamacpp_url(llamacpp_url)
-        llamacpp_api_key = params.get("llamacpp_api_key", cfg.llamacpp_api_key) or cfg.llamacpp_api_key
-
-        default_agent_model = (
-            openrouter_model if provider == "openrouter" else llamacpp_model
+        llamacpp_api_key = (
+            params.get("llamacpp_api_key", cfg.llamacpp_api_key) or cfg.llamacpp_api_key
         )
+
+        default_agent_model = openrouter_model if provider == "openrouter" else llamacpp_model
 
         synthesis_model = params.get("synthesis_model", "").strip()
         agent_models_raw = params.get("agent_models", "").strip()
@@ -475,12 +451,8 @@ async def build_and_run_graph(payload: dict = Body(...)):
                     "--- 💻 CODER DEBUG MODE ENABLED (Mock LLM — no API cost) 💻 ---"
                 )
             llm = CoderMockLLM()
-            summarizer_llm = CoderMockLLM()
             synthesis_llm = CoderMockLLM()
-            embeddings_model = None
-            await log_stream.put(
-                "--- ⚠️ Debug Mode: Embeddings skipped. RAG will be skipped. ---"
-            )
+            await log_stream.put("--- ⚠️ Debug Mode: Embeddings skipped. RAG will be skipped. ---")
 
         elif provider == "openrouter":
             if not api_key:
@@ -496,10 +468,9 @@ async def build_and_run_graph(payload: dict = Body(...)):
                 temperature=cfg.temperature,
                 callbacks=[token_tracker],
             )
-            summarizer_llm = llm
             # Use OpenAIEmbeddings with OpenRouter base URL (works for many OpenRouter embedding models)
             try:
-                embeddings_model = OpenAIEmbeddings(
+                OpenAIEmbeddings(
                     model=cfg.openrouter_embedding_model,
                     openai_api_key=api_key,
                     openai_api_base=cfg.openrouter_base_url,
@@ -509,10 +480,7 @@ async def build_and_run_graph(payload: dict = Body(...)):
                     f"--- Initializing Main Agent LLM: OpenRouter ({default_agent_model}) & Embeddings ---"
                 )
             except Exception as e:
-                embeddings_model = None
-                await log_stream.put(
-                    f"WARNING: Failed to initialize OpenRouter embeddings: {e}"
-                )
+                await log_stream.put(f"WARNING: Failed to initialize OpenRouter embeddings: {e}")
 
             # Create synthesis LLM if user specified a different model for synthesis
             synthesis_llm = llm
@@ -543,13 +511,12 @@ async def build_and_run_graph(payload: dict = Body(...)):
                 temperature=cfg.temperature,
                 max_tokens=cfg.max_tokens,
             )
-            summarizer_llm = llm
             # Use OpenAIEmbeddings pointing to local server (assumes embedding capable server)
             llamacpp_emb_url = cfg.normalize_llamacpp_url(
                 params.get("llamacpp_embedding_url", cfg.llamacpp_embedding_url)
             )
             try:
-                embeddings_model = OpenAIEmbeddings(
+                OpenAIEmbeddings(
                     model=cfg.llamacpp_embedding_model,
                     openai_api_base=llamacpp_emb_url,
                     openai_api_key=llamacpp_api_key or "sk-no-key-required",
@@ -559,10 +526,7 @@ async def build_and_run_graph(payload: dict = Body(...)):
                     f"--- Initializing Main Agent LLM: LlamaCpp & Embeddings ({llamacpp_emb_url}) ---"
                 )
             except Exception as e:
-                embeddings_model = None
-                await log_stream.put(
-                    f"WARNING: Failed to initialize LlamaCpp embeddings: {e}"
-                )
+                await log_stream.put(f"WARNING: Failed to initialize LlamaCpp embeddings: {e}")
 
             synthesis_llm = llm
             if synthesis_model and synthesis_model != default_agent_model:
@@ -584,9 +548,7 @@ async def build_and_run_graph(payload: dict = Body(...)):
 
         else:
             return JSONResponse(
-                content={
-                    "message": "Invalid provider. Please select openrouter or llamacpp."
-                },
+                content={"message": "Invalid provider. Please select openrouter or llamacpp."},
                 status_code=400,
             )
 
@@ -609,33 +571,7 @@ async def build_and_run_graph(payload: dict = Body(...)):
             else capped_context
         )
         params["prompt"] = user_prompt
-        await log_stream.put(
-            f"LOG: Context attached to prompt ({len(capped_context)} characters)."
-        )
-
-    detected_is_code = False
-
-    # Code detection only for legacy algorithm-style runs (not brainstorm / QDAD)
-    if mode not in ("brainstorm", "app_slot_machine"):
-        try:
-            request_is_code_chain = get_request_is_code_chain(llm)
-            detected_is_code = (
-                await request_is_code_chain.ainvoke({"request": user_prompt})
-            ).strip().lower() == "yes"
-        except Exception as e:
-            await log_stream.put(
-                f"WARNING: Code detection LLM call failed: {e}. Defaulting to non-code path."
-            )
-            detected_is_code = False
-
-    # Check if user explicitly requested coder debug mode
-    coder_debug_param = params.get("coder_debug_mode")
-    is_code = detected_is_code or (
-        coder_debug_param == "true" or coder_debug_param is True
-    )
-
-    if mode in ("brainstorm", "app_slot_machine"):
-        is_code = False
+        await log_stream.put(f"LOG: Context attached to prompt ({len(capped_context)} characters).")
 
     await log_stream.put(f"--- Starting Graph Build and Run Process (Mode: {mode}) ---")
     await log_stream.put(f"Parameters: {params}")
@@ -750,13 +686,9 @@ async def build_and_run_graph(payload: dict = Body(...)):
             }
         )
 
-
     return JSONResponse(
         content={
-            "message": (
-                f"Unsupported mode '{mode}'. "
-                "Use 'brainstorm' or 'app_slot_machine'."
-            )
+            "message": (f"Unsupported mode '{mode}'. Use 'brainstorm' or 'app_slot_machine'.")
         },
         status_code=400,
     )
@@ -791,15 +723,12 @@ async def export_qnn(session_id: str):
     state_to_export["all_rag_documents"] = serialized_docs
 
     await log_stream.put(
-        f"--- [EXPORT] Exporting session {session_id} "
-        f"(mode={state_to_export.get('mode', '?')}) ---"
+        f"--- [EXPORT] Exporting session {session_id} (mode={state_to_export.get('mode', '?')}) ---"
     )
 
     return JSONResponse(
         content=state_to_export,
-        headers={
-            "Content-Disposition": f"attachment; filename=qnn_state_{session_id}.json"
-        },
+        headers={"Content-Disposition": f"attachment; filename=qnn_state_{session_id}.json"},
     )
 
 
@@ -854,7 +783,7 @@ async def import_qnn(file: UploadFile = File(...)):
 
 
 @app.post("/upload_documents")
-async def upload_documents(files: List[UploadFile] = File(...)):
+async def upload_documents(files: list[UploadFile] = File(...)):
     """
     Uploads PDF documents and extracts their text content.
     Returns extracted text to be used as context in brainstorm mode.
@@ -887,7 +816,7 @@ async def upload_documents(files: List[UploadFile] = File(...)):
                 remaining_chars = MAX_TOTAL_CHARS - total_chars
                 if remaining_chars <= 0:
                     await log_stream.put(
-                        f"WARNING: Character limit reached. Skipping remaining files."
+                        "WARNING: Character limit reached. Skipping remaining files."
                     )
                     break
 
@@ -1107,7 +1036,7 @@ def _repo_priority_key(rel_path: str) -> tuple:
     return (priority, depth, normalized.lower())
 
 
-def _extract_repo_name(paths: List[str]) -> str:
+def _extract_repo_name(paths: list[str]) -> str:
     for path in paths:
         normalized = _normalize_repo_path(path)
         if normalized:
@@ -1116,7 +1045,7 @@ def _extract_repo_name(paths: List[str]) -> str:
 
 
 @app.post("/upload_code_files")
-async def upload_code_files(files: List[UploadFile] = File(...)):
+async def upload_code_files(files: list[UploadFile] = File(...)):
     """
     Uploads source code / text files and returns their contents for use as context.
     """
@@ -1147,9 +1076,7 @@ async def upload_code_files(files: List[UploadFile] = File(...)):
 
             if len(file_text) > remaining_chars:
                 file_text = file_text[:remaining_chars]
-                await log_stream.put(
-                    f"WARNING: Truncated {file.filename} to fit character limit."
-                )
+                await log_stream.put(f"WARNING: Truncated {file.filename} to fit character limit.")
 
             total_chars += len(file_text)
             extracted_files.append(
@@ -1166,7 +1093,10 @@ async def upload_code_files(files: List[UploadFile] = File(...)):
             )
 
         combined_text = "\n\n---\n\n".join(
-            [_format_code_block(doc["filename"], doc["text"], doc.get("extension", "")) for doc in extracted_files]
+            [
+                _format_code_block(doc["filename"], doc["text"], doc.get("extension", ""))
+                for doc in extracted_files
+            ]
         )
 
         return JSONResponse(
@@ -1189,8 +1119,8 @@ async def upload_code_files(files: List[UploadFile] = File(...)):
 
 @app.post("/upload_repository")
 async def upload_repository(
-    files: List[UploadFile] = File(...),
-    paths: List[str] = Form(default=[]),
+    files: list[UploadFile] = File(...),
+    paths: list[str] = Form(default=[]),
 ):
     """
     Uploads an entire repository folder and returns prioritized source files as context.
@@ -1206,7 +1136,7 @@ async def upload_repository(
                 status_code=400,
             )
 
-        resolved_paths: List[str] = []
+        resolved_paths: list[str] = []
         for index, file in enumerate(files):
             if index < len(paths) and paths[index]:
                 resolved_paths.append(_normalize_repo_path(paths[index]))
@@ -1286,7 +1216,9 @@ async def upload_repository(
             f"Successfully loaded {len(extracted_files)} file(s) from repository '{repo_name}'."
         )
         if skipped_count:
-            message += f" Skipped {skipped_count} file(s) (ignored paths, unsupported types, or limits)."
+            message += (
+                f" Skipped {skipped_count} file(s) (ignored paths, unsupported types, or limits)."
+            )
         if truncated_count:
             message += f" Truncated {truncated_count} file(s) to fit the character budget."
 
@@ -1316,9 +1248,7 @@ async def chat_with_index(payload: dict = Body(...)):
     message = payload.get("message")
     session_id = payload.get("session_id")
 
-    await log_stream.put(
-        f"LOG: [CHAT] session_id={session_id}, active_sessions={len(sessions)}"
-    )
+    await log_stream.put(f"LOG: [CHAT] session_id={session_id}, active_sessions={len(sessions)}")
 
     if not session_id or session_id not in list(sessions.keys()):
         return JSONResponse(content={"error": "Invalid session ID"}, status_code=404)
@@ -1335,16 +1265,12 @@ async def chat_with_index(payload: dict = Body(...)):
 
     async def stream_response():
         try:
-            retrieved_docs = await asyncio.to_thread(
-                raptor_index.retrieve, message, k=10
-            )
+            retrieved_docs = await asyncio.to_thread(raptor_index.retrieve, message, k=10)
             context = "\n\n---\n\n".join([doc.page_content for doc in retrieved_docs])
 
             chat_chain = get_rag_chat_chain(llm)
             full_response = ""
-            async for chunk in chat_chain.astream(
-                {"context": context, "question": message}
-            ):
+            async for chunk in chat_chain.astream({"context": context, "question": message}):
                 content = chunk.content if hasattr(chunk, "content") else chunk
                 yield content
                 full_response += content
@@ -1387,9 +1313,7 @@ async def diagnostic_chat_with_index(payload: dict = Body(...)):
     async def stream_response():
         try:
             query = message.strip()[5:]
-            await log_stream.put(
-                f"--- [DIAGNOSTIC] Raw RAG query received: '{query}' ---"
-            )
+            await log_stream.put(f"--- [DIAGNOSTIC] Raw RAG query received: '{query}' ---")
 
             retrieved_docs = await asyncio.to_thread(raptor_index.retrieve, query, k=10)
 
@@ -1418,9 +1342,7 @@ async def diagnostic_chat_with_index(payload: dict = Body(...)):
 
 @app.post("/harvest")
 async def harvest_session(payload: dict = Body(...)):
-    if not payload.get("session_id") or payload.get("session_id") not in list(
-        sessions.keys()
-    ):
+    if not payload.get("session_id") or payload.get("session_id") not in list(sessions.keys()):
         return JSONResponse(content={"error": "Invalid request"}, status_code=404)
 
     session = sessions.get(payload.get("session_id"))
@@ -1442,7 +1364,9 @@ async def harvest_session(payload: dict = Body(...)):
             for i, turn in enumerate(chat_history):
                 if turn["role"] == "ai":
                     user_turn = chat_history[i - 1]
-                    content = f"User Question: {user_turn['content']}\n\nAI Answer: {turn['content']}"
+                    content = (
+                        f"User Question: {user_turn['content']}\n\nAI Answer: {turn['content']}"
+                    )
                     chat_docs.append(
                         Document(
                             page_content=content,
@@ -1460,16 +1384,12 @@ async def harvest_session(payload: dict = Body(...)):
             await log_stream.put(
                 "--- [RAG PASS] Re-building Final RAPTOR Index with Chat History ---"
             )
-            update_rag_node = create_update_rag_index_node(
-                summarizer_llm, embeddings_model
-            )
+            update_rag_node = create_update_rag_index_node(summarizer_llm, embeddings_model)
             update_result = await update_rag_node(state, end_of_run=True)
             state.update(update_result)
 
         num_questions = int(params.get("num_questions", 25))
-        final_harvest_node = create_final_harvest_node(
-            llm, summarizer_llm, num_questions
-        )
+        final_harvest_node = create_final_harvest_node(llm, summarizer_llm, num_questions)
         final_harvest_result = await final_harvest_node(state)
         state.update(final_harvest_result)
 
@@ -1482,9 +1402,7 @@ async def harvest_session(payload: dict = Body(...)):
                 f"SUCCESS: Final report with {len(academic_papers)} papers created."
             )
         else:
-            await log_stream.put(
-                "WARNING: No academic papers were generated in the final harvest."
-            )
+            await log_stream.put("WARNING: No academic papers were generated in the final harvest.")
 
         return JSONResponse(
             content={
@@ -1535,9 +1453,7 @@ async def download_report(session_id: str):
     papers = final_reports.get(session_id, {})
 
     if not papers:
-        return JSONResponse(
-            content={"error": "Report not found or expired."}, status_code=404
-        )
+        return JSONResponse(content={"error": "Report not found or expired."}, status_code=404)
 
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
@@ -1551,9 +1467,7 @@ async def download_report(session_id: str):
     return StreamingResponse(
         zip_buffer,
         media_type="application/zip",
-        headers={
-            "Content-Disposition": f"attachment; filename=NOA_Report_{session_id}.zip"
-        },
+        headers={"Content-Disposition": f"attachment; filename=NOA_Report_{session_id}.zip"},
     )
 
 
@@ -1584,9 +1498,7 @@ async def start_distillation(payload: dict = Body(...)):
     try:
         if debug_mode:
             llm = DistillationMockLLM()
-            await log_stream.put(
-                "--- ⚗️ Distillation Debug Mode: using DistillationMockLLM ---"
-            )
+            await log_stream.put("--- ⚗️ Distillation Debug Mode: using DistillationMockLLM ---")
         else:
             # For distillation, use synthesis_model as override if provided, else main model
             distil_model = (
@@ -1607,9 +1519,7 @@ async def start_distillation(payload: dict = Body(...)):
                     openai_api_base="https://openrouter.ai/api/v1",
                     temperature=0.7,
                 )
-                await log_stream.put(
-                    f"--- Distillation LLM: OpenRouter ({distil_model}) ---"
-                )
+                await log_stream.put(f"--- Distillation LLM: OpenRouter ({distil_model}) ---")
             elif provider == "llamacpp":
                 llamacpp_url = payload.get("llamacpp_url", "http://localhost:8080/v1")
                 llamacpp_url = llamacpp_url.rstrip("/")
@@ -1623,21 +1533,15 @@ async def start_distillation(payload: dict = Body(...)):
                     temperature=0.7,
                     max_tokens=4096,
                 )
-                await log_stream.put(
-                    f"--- Distillation LLM: LlamaCpp ({llamacpp_url}) ---"
-                )
+                await log_stream.put(f"--- Distillation LLM: LlamaCpp ({llamacpp_url}) ---")
             else:
                 return JSONResponse(
-                    content={
-                        "message": "Invalid provider. Please select openrouter or llamacpp."
-                    },
+                    content={"message": "Invalid provider. Please select openrouter or llamacpp."},
                     status_code=400,
                 )
     except Exception as e:
         await log_stream.put(f"Distillation LLM Init Error: {e}")
-        return JSONResponse(
-            content={"message": f"Failed to initialize LLM: {e}"}, status_code=500
-        )
+        return JSONResponse(content={"message": f"Failed to initialize LLM: {e}"}, status_code=500)
 
     asyncio.create_task(run_distillation_loop(llm, topics_list, anchors, debug_mode))
 
@@ -1687,8 +1591,7 @@ async def run_distillation_loop(llm, topics, anchors, debug_mode):
                     "step": cumulative_step,
                     "epoch": active_distillation_graph.epochs_run,
                     "topology": [
-                        [a.to_dict() for a in layer]
-                        for layer in active_distillation_graph.layers
+                        [a.to_dict() for a in layer] for layer in active_distillation_graph.layers
                     ],
                     "token_count": active_distillation_graph.total_tokens,
                     "input_tokens": active_distillation_graph.total_input_tokens,
@@ -1718,7 +1621,7 @@ async def run_distillation_loop(llm, topics, anchors, debug_mode):
                 break
 
         if not active_distillation_graph.is_running:
-            await log_stream.put(f"--- ⚗️ Distillation halted by user. ---")
+            await log_stream.put("--- ⚗️ Distillation halted by user. ---")
             break
 
     await log_stream.put(
@@ -1738,13 +1641,9 @@ async def stop_distillation():
     """Gracefully stop a running distillation."""
     global active_distillation_graph
     if not active_distillation_graph:
-        return JSONResponse(
-            status_code=404, content={"message": "No active distillation."}
-        )
+        return JSONResponse(status_code=404, content={"message": "No active distillation."})
     active_distillation_graph.is_running = False
-    await log_stream.put(
-        "--- ⚗️ Distillation stop requested. Will halt after current epoch. ---"
-    )
+    await log_stream.put("--- ⚗️ Distillation stop requested. Will halt after current epoch. ---")
     return {
         "status": "stopping",
         "message": "Distillation will stop after current epoch.",
@@ -1756,9 +1655,7 @@ async def get_distillation_data():
     """Return the current distilled dataset and metrics."""
     global active_distillation_graph
     if not active_distillation_graph:
-        return JSONResponse(
-            status_code=404, content={"message": "No active distillation."}
-        )
+        return JSONResponse(status_code=404, content={"message": "No active distillation."})
 
     return JSONResponse(
         content={
@@ -1780,9 +1677,7 @@ async def download_distillation():
     """Download the distilled dataset as a JSON file."""
     global active_distillation_graph
     if not active_distillation_graph:
-        return JSONResponse(
-            status_code=404, content={"message": "No active distillation."}
-        )
+        return JSONResponse(status_code=404, content={"message": "No active distillation."})
 
     dataset = {
         "anchor_question": active_distillation_graph.anchor_question,
@@ -1815,7 +1710,7 @@ async def log_broadcaster_worker():
         try:
             msg = await log_stream.get()
             await broadcast_log(msg)
-        except Exception as e:
+        except Exception:
             # Prevent the worker from dying on unexpected errors
             pass
             await asyncio.sleep(1)

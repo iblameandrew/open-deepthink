@@ -11,25 +11,26 @@ denoising_steps is exhausted (conditional edge).
 
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
-from langgraph.graph import StateGraph, END, START
+from langgraph.graph import END, START, StateGraph
 
-from .state import QDADState
 from .nodes import (
+    create_denoise_node,
     create_foundation_node,
     create_grid_node,
     create_noise_node,
-    create_denoise_node,
     create_synthesis_node,
     should_continue_denoise,
 )
+from .state import QDADState
 
 
 def build_qdad_graph(
     llm,
     synthesis_llm=None,
-    log: Optional[Callable[[str], Any]] = None,
+    log: Callable[[str], Any] | None = None,
 ):
     """Compile the QDAD qualitative diffusion graph.
 

@@ -11,8 +11,9 @@ from __future__ import annotations
 import asyncio
 import json
 import random
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -31,11 +32,10 @@ from deepthink.chains.brainstorm_chains import (
 from deepthink.self_attention import compute_self_attention
 from deepthink.utils import clean_and_parse_json
 
+LogFn = Callable[[str], Any] | None
 
-LogFn = Optional[Callable[[str], Any]]
 
-
-def default_qnn_params() -> Dict[str, Any]:
+def default_qnn_params() -> dict[str, Any]:
     """Documented defaults for harnesses / CLI."""
     return {
         "qnn_mode": "auto",  # "auto" | "manual"
@@ -56,16 +56,16 @@ class QNNResult:
     mode: str = "brainstorm"
     proposed_solution: str = ""
     reasoning: str = ""
-    topology: Dict[str, Any] = field(default_factory=dict)
-    seed_pool: List[str] = field(default_factory=list)
-    column_guiding_words: List[str] = field(default_factory=list)
-    agent_personas: Dict[str, Any] = field(default_factory=dict)
-    attention_edges: Dict[str, Any] = field(default_factory=dict)
-    epoch_maps: List[str] = field(default_factory=list)
-    final_solution: Dict[str, Any] = field(default_factory=dict)
-    params: Dict[str, Any] = field(default_factory=dict)
+    topology: dict[str, Any] = field(default_factory=dict)
+    seed_pool: list[str] = field(default_factory=list)
+    column_guiding_words: list[str] = field(default_factory=list)
+    agent_personas: dict[str, Any] = field(default_factory=dict)
+    attention_edges: dict[str, Any] = field(default_factory=dict)
+    epoch_maps: list[str] = field(default_factory=list)
+    final_solution: dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -77,9 +77,7 @@ async def _log(log: LogFn, msg: str) -> None:
         await result
 
 
-def _clamp_topology(
-    layers: int, width: int, epochs: int, *, manual: bool = False
-) -> tuple:
+def _clamp_topology(layers: int, width: int, epochs: int, *, manual: bool = False) -> tuple:
     """Bound topology. Auto mode keeps a 24-agent laptop cap; manual does not."""
     from deepthink.cost import AUTO_AGENT_CAP
 
@@ -91,14 +89,12 @@ def _clamp_topology(
     return layers, width, epochs
 
 
-def clamp_qnn_topology(
-    layers: int, width: int, epochs: int, *, manual: bool = False
-) -> tuple:
+def clamp_qnn_topology(layers: int, width: int, epochs: int, *, manual: bool = False) -> tuple:
     """Public alias of the topology clamp used by the pipeline."""
     return _clamp_topology(layers, width, epochs, manual=manual)
 
 
-def _persist_session(session_store, session_id: str, payload: Dict[str, Any]) -> None:
+def _persist_session(session_store, session_id: str, payload: dict[str, Any]) -> None:
     if session_store is None or not session_id or session_id not in session_store:
         return
     session_store[session_id].update(payload)
@@ -133,16 +129,16 @@ async def _run_agent_cell(
     *,
     node_id: str,
     layer_index: int,
-    persona: Dict[str, Any],
+    persona: dict[str, Any],
     brief: str,
     user_prompt: str,
     current_problem: str,
     epoch: int,
-    prev_layer_outputs: List[Any],
-    memory: Dict[str, List[Any]],
-    agent_outputs_snapshot: Dict[str, Any],
-    all_layers_prompts: List[List[str]],
-    agent_personas: Dict[str, Any],
+    prev_layer_outputs: list[Any],
+    memory: dict[str, list[Any]],
+    agent_outputs_snapshot: dict[str, Any],
+    all_layers_prompts: list[list[str]],
+    agent_personas: dict[str, Any],
     enable_attn: bool,
     top_k: int,
     log: LogFn,
@@ -154,7 +150,7 @@ async def _run_agent_cell(
     )
 
     attention_block = ""
-    edge_dicts: List[dict] = []
+    edge_dicts: list[dict] = []
     if enable_attn and top_k > 0:
         state_snap = {
             "epoch": epoch,
@@ -164,9 +160,7 @@ async def _run_agent_cell(
             "memory": memory,
         }
         try:
-            edges, attention_block = compute_self_attention(
-                state_snap, node_id, top_k=top_k
-            )
+            edges, attention_block = compute_self_attention(state_snap, node_id, top_k=top_k)
             if edges:
                 edge_dicts = [e.to_dict() for e in edges]
                 await _log(
@@ -252,15 +246,15 @@ Convergent / critical. Critique or combine upstream. Cite agent_id. No productio
 async def run_qnn_pipeline(
     llm,
     user_prompt: str,
-    params: Optional[Dict[str, Any]] = None,
+    params: dict[str, Any] | None = None,
     *,
     synthesis_llm=None,
     document_context: str = "",
-    chat_history: Optional[List[dict]] = None,
+    chat_history: list[dict] | None = None,
     log: LogFn = None,
     session_id: str = "",
-    session_store: Optional[dict] = None,
-) -> Dict[str, Any]:
+    session_store: dict | None = None,
+) -> dict[str, Any]:
     """
     Run the full Qualitative Neural Network (brainstorm) pipeline.
 
@@ -426,7 +420,7 @@ async def run_qnn_pipeline(
         all_seed_words.append(fallback[len(all_seed_words) % len(fallback)])
     random.shuffle(all_seed_words)
 
-    column_guiding_words: List[str] = []
+    column_guiding_words: list[str] = []
     for j in range(width):
         sample = (
             random.sample(all_seed_words, V) if len(all_seed_words) >= V else list(all_seed_words)
@@ -437,8 +431,8 @@ async def run_qnn_pipeline(
     # ── Step 3: Span personas (parallel per layer) ─────────────────
     await _log(log, f"LOG: [QNN STEP 3] Spanning {layers}×{width} personas...")
     spanner = get_brainstorming_spanner_chain(llm)
-    agent_personas: Dict[str, Any] = {}
-    all_layers_prompts: List[List[str]] = []
+    agent_personas: dict[str, Any] = {}
+    all_layers_prompts: list[list[str]] = []
 
     for i in range(layers):
         spanned = await asyncio.gather(
@@ -447,7 +441,7 @@ async def run_qnn_pipeline(
                 for j in range(width)
             ]
         )
-        layer_prompts: List[str] = []
+        layer_prompts: list[str] = []
         for node_id, persona, system_prompt in spanned:
             agent_personas[node_id] = persona
             layer_prompts.append(system_prompt)
@@ -458,15 +452,15 @@ async def run_qnn_pipeline(
         all_layers_prompts.append(layer_prompts)
 
     # ── Step 4: Epoch loop ─────────────────────────────────────────
-    memory: Dict[str, List[Any]] = {nid: [] for nid in agent_personas}
-    attention_edges: Dict[str, Any] = {}
-    epoch_maps: List[str] = []
+    memory: dict[str, list[Any]] = {nid: [] for nid in agent_personas}
+    attention_edges: dict[str, Any] = {}
+    epoch_maps: list[str] = []
     current_problem = user_prompt
     previous_solution = ""
 
     agent_chain = ChatPromptTemplate.from_template("{input}") | llm | StrOutputParser()
 
-    def _build_result(report: str, epoch: int, reasoning: str) -> Dict[str, Any]:
+    def _build_result(report: str, epoch: int, reasoning: str) -> dict[str, Any]:
         final = {
             "mode": "brainstorm",
             "proposed_solution": report,
@@ -490,10 +484,10 @@ async def run_qnn_pipeline(
 
     for epoch in range(epochs):
         await _log(log, f"--- [QNN STEP 4] Epoch {epoch}/{epochs - 1} forward ---")
-        agent_outputs: Dict[str, Any] = {}
+        agent_outputs: dict[str, Any] = {}
 
         for i in range(layers):
-            prev_layer_outputs: List[Any] = []
+            prev_layer_outputs: list[Any] = []
             if i > 0:
                 for k in range(width):
                     prev_id = f"agent_{i - 1}_{k}"

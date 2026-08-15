@@ -3,8 +3,8 @@ Synthesis and problem decomposition chain factories.
 These chains handle solution synthesis and problem reframing.
 """
 
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 
 
 def get_synthesis_chain(llm):
@@ -43,7 +43,7 @@ Existing Modules Context:
 ---
 
 Original Problem: {original_request}
-                                            
+
 Current problem:
 ---
 {current_problem}
@@ -52,7 +52,7 @@ Current problem:
 Agent Solutions (containing code snippets):
 {agent_solutions}
 
-Synthesize the final, complete code application. 
+Synthesize the final, complete code application.
 CRITICAL: The final output must be ONLY the runnable code, wrapped in triple backticks with a "python" language identifier (e.g., ```python\n[CODE HERE]\n```). Do not include any other text or explanations before or after the code block.
 
 Final code application:
@@ -83,10 +83,10 @@ def get_problem_reframer_chain(llm):
     prompt = ChatPromptTemplate.from_template("""
 You are a strategic problem re-framer. You have been informed that an AI agent team has made a significant breakthrough on a problem.
 
-Your task is to formulate wether the team needs to deepen with a more complex solution, or widen and perfect the current one, referring previous solutions with the new one. 
-                                            
+Your task is to formulate wether the team needs to deepen with a more complex solution, or widen and perfect the current one, referring previous solutions with the new one.
+
 If the problem statement is code, and the current solution could be more modular and granular, you must set the next goal to improve the current solution with more breath instead of synthesis
-                                              
+
 - if however the solution is already up to a good standard of breadth, you must set a next step that builds upon the success of the solution but stil grounded in the original problem  trying to achieve the same goal.
 
 The new problem should represent the "next logical step"; a more ambitious goal, or a more grounded approach if the solution is still not granular enough. Compare previous solutions to current ones, check if references and imports to previous work are appropiately used and decide the next step.
@@ -100,20 +100,20 @@ Current problem:
 ---
 {current_problem}
 ---
-Previous Solution:                            
+Previous Solution:
 ---
 {previous_solution}
 ---
 
 Previous solutions documentation:
-                                              
+
 {module_cards}
 
 The Breakthrough Solution:
 ---
 {final_solution}
 ---
-                                              
+
 
 Your output must be a JSON object with a single key: "new_problem".
 

@@ -2,9 +2,8 @@
 Chains for the Knowledge Distillation feature.
 """
 
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-import json
+from langchain_core.prompts import ChatPromptTemplate
 
 # 12 Non-Astrological Archetypes (based on Zodiac traits)
 DISTILLATION_ARCHETYPES = {
@@ -169,7 +168,7 @@ These are the 12 agents currently in the network with their evolved attributes:
 3. Determine 'difficulty':
    - "Easy": The agent handled it well, solid answer, fits their attributes.
    - "Hard": The agent struggled, weak/vague answer, or required different attributes.
-4. If "Hard", identify which agent from the Current Grid above would be best suited 
+4. If "Hard", identify which agent from the Current Grid above would be best suited
    to help solve this type of question. Return their agent ID.
 </Instruction>
 

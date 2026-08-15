@@ -12,8 +12,8 @@ panel of static experts. Chains implement the QNN algorithm step-by-step:
   5. Solution-Space Report (final synthesis + polisher)
 """
 
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 
 
 def get_complexity_estimator_chain(llm):

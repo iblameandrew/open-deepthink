@@ -9,24 +9,25 @@ from __future__ import annotations
 
 import json
 import traceback
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from .graph import build_qdad_graph, draw_qdad_ascii
-from .utils import clamp_params, enrich_prompt
 from .state import QDADState
+from .utils import clamp_params, enrich_prompt
 
 
 async def run_qdad_pipeline(
     llm,
-    params: Dict[str, Any],
+    params: dict[str, Any],
     user_prompt: str,
     session_id: str = "",
     synthesis_llm=None,
     document_context: str = "",
-    chat_history: Optional[List[dict]] = None,
-    log: Optional[Callable[[str], Any]] = None,
-    session_store: Optional[dict] = None,
-) -> Dict[str, Any]:
+    chat_history: list[dict] | None = None,
+    log: Callable[[str], Any] | None = None,
+    session_store: dict | None = None,
+) -> dict[str, Any]:
     """
     Run the full Qualitative Diffusion App Designer pipeline.
 

@@ -12,7 +12,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 
 def clean_and_parse_json(llm_output_string):
@@ -113,7 +113,7 @@ def clean_and_parse_json(llm_output_string):
         return None
 
 
-def parse_llm_json(raw: Any, default: Optional[dict] = None) -> dict:
+def parse_llm_json(raw: Any, default: dict | None = None) -> dict:
     """Parse an LLM payload into a dict (fenced / messy JSON included)."""
     if isinstance(raw, dict):
         return raw
@@ -157,6 +157,7 @@ def estimate_tokens(text: Any) -> int:
 # ---------------------------------------------------------------------------
 # Isolated code sandbox
 # ---------------------------------------------------------------------------
+
 
 class SandboxError(Exception):
     """Raised when user code is rejected before execution."""
@@ -302,7 +303,7 @@ def _sandbox_env() -> dict:
     return env
 
 
-_SANDBOX_RUNNER = r'''
+_SANDBOX_RUNNER = r"""
 import ast
 import io
 import sys
@@ -367,7 +368,7 @@ except Exception as e:
     sys.stderr.write("ERROR: %s: %s\n" % (type(e).__name__, e))
     sys.exit(1)
 sys.stdout.write(buf.getvalue())
-'''
+"""
 
 
 def _extract_sandbox_source(code: str) -> str:

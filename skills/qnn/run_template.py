@@ -3,6 +3,7 @@
 QNN runner — materialized on-the-fly by the /qnn skill.
 Discovers deepthink from the workspace tree; runs the QNN pipeline.
 """
+
 from __future__ import annotations
 
 import argparse

@@ -1,6 +1,7 @@
 """Unit tests for Qualitative Self-Attention (brainstorm QSA)."""
-from pathlib import Path
+
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -90,9 +91,7 @@ def t2():
     # Neighbors' current outputs excluded; their past memory may still appear
     assert "agent_1_1" in ids, "should attend non-neighbor peer memory"
     # Current epoch neighbor outputs should not be double-counted as agent_outputs candidates
-    current_n = [
-        c for c in cands if c.source == "agent_outputs" and c.agent_id in neighbors
-    ]
+    current_n = [c for c in cands if c.source == "agent_outputs" and c.agent_id in neighbors]
     assert current_n == [], f"neighbor current outputs leaked: {current_n}"
 
 
